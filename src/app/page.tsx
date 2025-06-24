@@ -23,13 +23,14 @@ import {
   LogOut,
   Coffee,
   Play,
-  CheckCircle2,
+  Trash2,
 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
   AlertDialog,
+  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -50,7 +51,7 @@ type TimeEntry = {
   endTime?: string; // ISO string
 };
 
-type WorkdayStatus = 'NOT_STARTED' | 'WORKING_MORNING' | 'ON_BREAK' | 'WORKING_AFTERNOON' | 'DAY_ENDED';
+type WorkdayStatus = 'NOT_STARTED' | 'WORKING' | 'ON_BREAK' | 'DAY_ENDED';
 
 type Workdays = {
   sun: boolean;
@@ -131,35 +132,34 @@ export default function RegistroFacilPage() {
     }
   }, [timeEntries, isClient]);
   
-  const { workdayStatus, currentEntry } = useMemo(() => {
+  const { workdayStatus, currentEntry, todayEventsCount } = useMemo(() => {
     const todayEntries = timeEntries.filter(entry => isSameDay(new Date(entry.startTime), now));
     const activeEntry = todayEntries.find(entry => !entry.endTime);
-
     const completedEntriesCount = todayEntries.filter(e => e.endTime).length;
-    const totalEvents = completedEntriesCount * 2 + (activeEntry ? 1 : 0);
-    const cycleStep = totalEvents % 4;
+    
+    const totalEvents = todayEntries.reduce((acc, entry) => {
+        acc += 1;
+        if (entry.endTime) acc += 1;
+        return acc;
+    }, 0);
 
     let status: WorkdayStatus;
 
-    if (activeEntry) { // User is working
-      if (cycleStep === 1) { // Entrada
-        status = 'WORKING_MORNING';
-      } else { // Retorno (cycleStep === 3)
-        status = 'WORKING_AFTERNOON';
-      }
-    } else { // User is not working
-      if (cycleStep === 0) {
-        if (totalEvents === 0) {
-          status = 'NOT_STARTED';
-        } else {
-          status = 'DAY_ENDED';
-        }
-      } else { // Pausa (cycleStep === 2)
+    if (activeEntry) {
+      status = 'WORKING';
+    } else {
+      if (totalEvents === 0) {
+        status = 'NOT_STARTED';
+      } else if (totalEvents % 2 === 0) {
+        status = 'ON_BREAK';
+      } else {
+        // This case should ideally not happen if logic is correct
+        // but as a fallback, we treat it as on break
         status = 'ON_BREAK';
       }
     }
     
-    return { workdayStatus: status, currentEntry: activeEntry || null };
+    return { workdayStatus: status, currentEntry: activeEntry || null, todayEventsCount: totalEvents };
   }, [timeEntries, now]);
 
   const handleClockAction = useCallback(() => {
@@ -254,14 +254,17 @@ export default function RegistroFacilPage() {
     const last = allEvents[0];
     if (!last) return { label: 'Nenhum registro hoje', time: null };
 
-    const completedEntriesCount = todayEntries.filter(e => e.endTime).length;
-    const isStartingSession = last.isStart;
+    const cycleStep = (allEvents.length -1) % 4;
     
-    if (isStartingSession) {
-      return { label: completedEntriesCount === 0 ? 'Entrada às' : 'Retorno às', time: last.time };
+    if (last.isStart) {
+      if (cycleStep === 0) return { label: 'Entrada às', time: last.time };
+      if (cycleStep === 2) return { label: 'Retorno às', time: last.time };
     } else {
-      return { label: (completedEntriesCount % 2 !== 0) ? 'Pausa às' : 'Saída às', time: last.time };
+      if (cycleStep === 1) return { label: 'Pausa às', time: last.time };
+      if (cycleStep === 3) return { label: 'Saída às', time: last.time };
     }
+    // Fallback for more than 4 entries
+    return { label: last.isStart ? 'Entrada às' : 'Saída às', time: last.time };
   }, [timeEntries, now]);
   
   const generalHistory = useMemo(() => {
@@ -277,43 +280,32 @@ export default function RegistroFacilPage() {
     const historyWithEvents = Object.entries(entriesByDay).map(([day, entries]) => {
       const sortedEntries = [...entries].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
       
-      let workSessionIndex = 0;
       const dayEvents = sortedEntries.flatMap((entry) => {
-        const events = [];
-        events.push({
-          id: `${entry.id}-start`,
-          label: workSessionIndex === 0 ? 'Entrada' : `Retorno ${workSessionIndex}`,
-          time: entry.startTime,
-          entryId: entry.id,
-          fieldToEdit: 'startTime' as const
-        });
-
-        if (entry.endTime) {
+          const events = [];
           events.push({
-            id: `${entry.id}-end`,
-            label: workSessionIndex === 0 ? 'Pausa' : `Saída ${workSessionIndex}`,
-            time: entry.endTime,
-            entryId: entry.id,
-            fieldToEdit: 'endTime' as const
+              id: `${entry.id}-start`,
+              time: entry.startTime,
+              entryId: entry.id,
+              fieldToEdit: 'startTime' as const,
           });
-          workSessionIndex++;
-        }
-        return events;
-      });
 
-      dayEvents.sort((a,b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+          if (entry.endTime) {
+              events.push({
+                  id: `${entry.id}-end`,
+                  time: entry.endTime,
+                  entryId: entry.id,
+                  fieldToEdit: 'endTime' as const,
+              });
+          }
+          return events;
+      }).sort((a,b) => new Date(a.time).getTime() - new Date(b.time).getTime());
 
       return {
         day,
         events: dayEvents.map((event, index) => {
-          const isStart = index % 2 === 0;
-          if (dayEvents.length <= 4) {
-            if (index === 0) return {...event, label: 'Entrada'};
-            if (index === 1) return {...event, label: 'Pausa'};
-            if (index === 2) return {...event, label: 'Retorno'};
-            if (index === 3) return {...event, label: 'Saída'};
-          }
-          return event;
+          const labels = ['Entrada', 'Pausa', 'Retorno', 'Saída'];
+          const labelIndex = index % 4;
+          return {...event, label: labels[labelIndex] || (index % 2 === 0 ? `Entrada ${Math.floor(index/2) + 1}` : `Saída ${Math.floor(index/2) + 1}`)};
         })
       };
     });
@@ -347,25 +339,33 @@ export default function RegistroFacilPage() {
     setEditingEvent(null);
   };
   
+  const handleDeleteEntry = (entryId: string) => {
+    setTimeEntries(prevEntries => prevEntries.filter(entry => entry.id !== entryId));
+  };
+  
   const buttonConfig = useMemo(() => {
-    switch (workdayStatus) {
-      case 'DAY_ENDED':
-      case 'NOT_STARTED': return { text: ['Registrar', 'Entrada'], icon: LogIn, disabled: false };
-      case 'WORKING_MORNING': return { text: ['Registrar', 'Pausa'], icon: Coffee, disabled: false };
-      case 'ON_BREAK': return { text: ['Registrar', 'Retorno'], icon: Play, disabled: false };
-      case 'WORKING_AFTERNOON': return { text: ['Registrar', 'Saída'], icon: LogOut, disabled: false };
-    }
-  }, [workdayStatus]);
+      const nextActionIndex = todayEventsCount % 4;
+      if (workdayStatus === 'WORKING') {
+        if (nextActionIndex === 1) return { text: ['Registrar', 'Pausa'], icon: Coffee, disabled: false };
+        if (nextActionIndex === 3) return { text: ['Registrar', 'Saída'], icon: LogOut, disabled: false };
+      }
+      if (nextActionIndex === 0) return { text: ['Registrar', 'Entrada'], icon: LogIn, disabled: false };
+      if (nextActionIndex === 2) return { text: ['Registrar', 'Retorno'], icon: Play, disabled: false };
+
+      // Fallback
+      return { text: ['Registrar', 'Ponto'], icon: Clock, disabled: false };
+  }, [workdayStatus, todayEventsCount]);
 
   const statusLabel = useMemo(() => {
     switch (workdayStatus) {
       case 'NOT_STARTED': return 'Fora do expediente';
-      case 'WORKING_MORNING': return `Em expediente desde ${formatTime(currentEntry?.startTime || now)}`;
-      case 'ON_BREAK': return 'Em pausa';
-      case 'WORKING_AFTERNOON': return `Em expediente desde ${formatTime(currentEntry?.startTime || now)}`;
-      case 'DAY_ENDED': return 'Expediente encerrado';
+      case 'WORKING': return `Em expediente desde ${formatTime(currentEntry?.startTime || now)}`;
+      case 'ON_BREAK': 
+        if(lastEvent.time) return `${lastEvent.label.replace(' às', '')} desde ${formatTime(lastEvent.time)}`;
+        return 'Em pausa';
+      case 'DAY_ENDED': return 'Expediente encerrado'; // This state is less likely now
     }
-  }, [workdayStatus, currentEntry, now]);
+  }, [workdayStatus, currentEntry, now, lastEvent]);
 
   if (!isClient) {
     return <div className="dark bg-background flex min-h-screen items-center justify-center" />;
@@ -410,7 +410,7 @@ export default function RegistroFacilPage() {
         <span className="text-base font-normal">{buttonConfig.text[1]}</span>
       </Button>
 
-      {(workdayStatus === 'WORKING_MORNING' || workdayStatus === 'WORKING_AFTERNOON') && (
+      {workdayStatus === 'WORKING' && (
         <div className="text-4xl font-mono tracking-widest">
             {formatDuration(elapsedTime)}
         </div>
@@ -447,7 +447,7 @@ export default function RegistroFacilPage() {
             <AlertDialogHeader>
               <AlertDialogTitle>Histórico Geral</AlertDialogTitle>
               <AlertDialogDescription>
-                Seus registros de ponto. Clique em um horário para editar.
+                Seus registros de ponto. Clique em um horário para editar ou no ícone da lixeira para excluir.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <ScrollArea className="h-96 pr-6">
@@ -463,27 +463,53 @@ export default function RegistroFacilPage() {
                                         <TableHeader>
                                             <TableRow>
                                                 <TableHead>Evento</TableHead>
-                                                <TableHead className="text-right">Horário</TableHead>
+                                                <TableHead>Horário</TableHead>
+                                                <TableHead className="text-right">Ações</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {events.map(event => (
                                                 <TableRow key={event.id}>
                                                     <TableCell>{event.label}</TableCell>
-                                                    <TableCell className="text-right font-mono">
+                                                    <TableCell className="font-mono">
                                                         {editingEvent?.id === event.id ? (
                                                             <Input
                                                                 type="time"
                                                                 defaultValue={format(new Date(event.time), "HH:mm")}
                                                                 onBlur={(e) => handleUpdateTime(event.entryId, event.fieldToEdit, e.target.value)}
                                                                 autoFocus
-                                                                className="w-24 float-right"
+                                                                className="w-24"
                                                             />
                                                         ) : (
                                                             <button className="p-1 rounded hover:bg-muted" onClick={() => setEditingEvent({ id: event.id })}>
                                                                 {format(new Date(event.time), 'HH:mm:ss')}
                                                             </button>
                                                         )}
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                      <AlertDialog>
+                                                        <AlertDialogTrigger asChild>
+                                                          <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10">
+                                                              <Trash2 className="h-4 w-4" />
+                                                          </Button>
+                                                        </AlertDialogTrigger>
+                                                        <AlertDialogContent>
+                                                            <AlertDialogHeader>
+                                                                <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                                                                <AlertDialogDescription>
+                                                                    Esta ação não pode ser desfeita. Isso excluirá permanentemente este registro de ponto ({event.label} às {format(new Date(event.time), 'HH:mm')}).
+                                                                </AlertDialogDescription>
+                                                            </AlertDialogHeader>
+                                                            <AlertDialogFooter>
+                                                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                                <AlertDialogAction
+                                                                    className={buttonVariants({ variant: "destructive" })}
+                                                                    onClick={() => handleDeleteEntry(event.entryId)}>
+                                                                    Excluir
+                                                                </AlertDialogAction>
+                                                            </AlertDialogFooter>
+                                                        </AlertDialogContent>
+                                                      </AlertDialog>
                                                     </TableCell>
                                                 </TableRow>
                                             ))}
