@@ -155,8 +155,8 @@ export default function SettingsPage() {
         <h1 className="text-xl font-bold ml-4">Configurações</h1>
       </header>
 
-      <main className="p-4 md:p-6 space-y-8 max-w-2xl mx-auto w-full flex-grow">
-        <section className="space-y-6">
+      <main className="p-4 md:p-6 space-y-8 max-w-2xl mx-auto w-full flex-grow animate-in fade-in-0 duration-500">
+        <section className="space-y-6 animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-100">
           <div className="flex justify-between items-center">
             <h2 className="text-lg font-semibold flex items-center gap-3">
               <Briefcase className="text-primary" />
@@ -240,7 +240,7 @@ export default function SettingsPage() {
 
         <Separator />
 
-        <section className="space-y-4">
+        <section className="space-y-4 animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-200">
             <h2 className="text-lg font-semibold flex items-center gap-3">
                 <Clock className="text-primary"/>
                 Exibição
@@ -260,7 +260,7 @@ export default function SettingsPage() {
         
         <Separator />
 
-        <section className="space-y-4">
+        <section className="space-y-4 animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-300">
              <h2 className="text-lg font-semibold flex items-center gap-3">
                 <Bell className="text-primary"/>
                 Notificações

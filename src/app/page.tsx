@@ -440,19 +440,19 @@ export default function RegistroFacilPage() {
   return (
     <main className="bg-background text-foreground flex flex-col items-center min-h-screen p-4 font-sans">
       <div className="w-full max-w-md mx-auto flex flex-col items-center justify-center flex-grow space-y-6 text-center">
-        <div className="text-center">
+        <div className="text-center animate-in fade-in-0 slide-in-from-top-4 duration-500">
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight">Registro Fácil</h1>
           <p className="text-muted-foreground capitalize mt-1">
             {format(now, "eeee, dd/MM/yyyy", { locale: ptBR })}
           </p>
         </div>
 
-        <div className="flex items-center gap-2 text-lg text-muted-foreground">
+        <div className="flex items-center gap-2 text-lg text-muted-foreground animate-in fade-in-0 slide-in-from-top-4 duration-500 delay-100">
           <Clock size={18} />
           <span>{statusLabel}</span>
         </div>
 
-        <div className="w-full">
+        <div className="w-full animate-in fade-in-0 slide-in-from-top-4 duration-500 delay-200">
           <div className="flex justify-between items-center mb-1 text-sm">
             <span className="flex items-center gap-2 font-semibold">
               <TrendingUp size={18} className="text-primary" /> Progresso do dia
@@ -470,7 +470,7 @@ export default function RegistroFacilPage() {
         <Button
           onClick={handleClockAction}
           disabled={buttonConfig.disabled}
-          className="w-48 h-48 md:w-56 md:h-56 rounded-full flex flex-col items-center justify-center text-xl md:text-2xl font-bold shadow-2xl shadow-primary/20 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-300 ease-in-out transform hover:scale-105 disabled:bg-muted disabled:scale-100 disabled:cursor-not-allowed"
+          className="w-48 h-48 md:w-56 md:h-56 rounded-full flex flex-col items-center justify-center text-xl md:text-2xl font-bold shadow-2xl shadow-primary/20 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-300 ease-in-out transform hover:scale-105 disabled:bg-muted disabled:scale-100 disabled:cursor-not-allowed animate-in fade-in-0 zoom-in-95 duration-500 delay-300"
         >
           <buttonConfig.icon className="mb-2" size={40} />
           <span>{buttonConfig.text[0]}</span>
@@ -478,12 +478,12 @@ export default function RegistroFacilPage() {
         </Button>
 
         {workdayStatus === 'WORKING' && (
-          <div className="text-5xl font-mono tracking-widest">
+          <div className="text-5xl font-mono tracking-widest animate-in fade-in-0 duration-500 delay-300">
               {formatDuration(elapsedTime)}
           </div>
         )}
         
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-400">
           <Card className="w-full bg-card">
             <CardContent className="p-4 flex justify-between items-center">
               <div>
@@ -508,7 +508,7 @@ export default function RegistroFacilPage() {
           </Card>
         </div>
 
-        <div className="flex flex-wrap justify-center gap-4 pt-4">
+        <div className="flex flex-wrap justify-center gap-4 pt-4 animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-500">
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="outline">

@@ -40,7 +40,7 @@ export default function LoginPage() {
 
   return (
     <main className="flex items-center justify-center min-h-screen bg-background p-4 font-sans">
-      <Card className="w-full max-w-sm">
+      <Card className="w-full max-w-sm animate-in fade-in-0 zoom-in-95 duration-500">
         <CardHeader className="text-center">
           <div className="mx-auto h-12 w-12 text-primary">
             <Logo />
