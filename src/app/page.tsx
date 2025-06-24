@@ -1,42 +1,42 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import type { DateRange } from "react-day-picker";
 import {
-  addDays,
   format,
-  startOfWeek,
-  endOfWeek,
-  isWithinInterval,
   differenceInMilliseconds,
   isSameDay,
+  startOfWeek,
+  eachDayOfInterval,
+  isWeekend,
+  isBefore,
+  isAfter,
+  startOfToday,
 } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import {
-  Calendar as CalendarIcon,
   Clock,
+  TrendingUp,
+  BarChart,
+  Settings,
   LogIn,
   LogOut,
-  BarChart,
-  Download,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
+import { Progress } from "@/components/ui/progress";
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardFooter,
-} from "@/components/ui/card";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
-import Logo from "@/components/Logo";
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
 
 type TimeEntry = {
   id: string;
@@ -44,22 +44,27 @@ type TimeEntry = {
   endTime?: string; // ISO string
 };
 
+const WORK_HOURS_PER_DAY = 8;
+
 const formatDuration = (milliseconds: number) => {
   if (milliseconds < 0) milliseconds = 0;
   const hours = Math.floor(milliseconds / 3600000);
   const minutes = Math.floor((milliseconds % 3600000) / 60000);
-  return `${hours}h ${minutes}m`;
+  return `${String(hours).padStart(2, "0")}h${String(minutes).padStart(
+    2,
+    "0"
+  )}m`;
 };
 
-export default function ClockwisePage() {
+const formatTime = (date: Date) => {
+  return format(date, "HH:mm");
+};
+
+export default function RegistroFacilPage() {
   const [isClient, setIsClient] = useState(false);
+  const [now, setNow] = useState(new Date());
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [currentEntry, setCurrentEntry] = useState<TimeEntry | null>(null);
-  const [elapsedTime, setElapsedTime] = useState(0);
-  const [reportRange, setReportRange] = useState<DateRange | undefined>({
-    from: startOfWeek(new Date()),
-    to: endOfWeek(new Date()),
-  });
 
   useEffect(() => {
     setIsClient(true);
@@ -75,323 +80,227 @@ export default function ClockwisePage() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("timeEntries", JSON.stringify(timeEntries));
-  }, [timeEntries]);
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout | undefined;
-    if (currentEntry) {
-      interval = setInterval(() => {
-        setElapsedTime(
-          differenceInMilliseconds(new Date(), new Date(currentEntry.startTime))
-        );
-      }, 1000);
+    if (isClient) {
+      localStorage.setItem("timeEntries", JSON.stringify(timeEntries));
     }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [currentEntry]);
+  }, [timeEntries, isClient]);
 
-  const handleClockIn = useCallback(() => {
-    if (currentEntry) return;
-    const newEntry: TimeEntry = {
-      id: crypto.randomUUID(),
-      startTime: new Date().toISOString(),
-    };
-    setCurrentEntry(newEntry);
-    setTimeEntries((prev) => [...prev, newEntry]);
-    setElapsedTime(0);
-  }, [currentEntry]);
+  const elapsedTime = useMemo(() => {
+    if (currentEntry) {
+      return differenceInMilliseconds(now, new Date(currentEntry.startTime));
+    }
+    return 0;
+  }, [now, currentEntry]);
 
-  const handleClockOut = useCallback(() => {
-    if (!currentEntry) return;
-    const now = new Date().toISOString();
-    const updatedEntry = { ...currentEntry, endTime: now };
-    setTimeEntries((prev) =>
-      prev.map((e) => (e.id === currentEntry.id ? updatedEntry : e))
-    );
-    setCurrentEntry(null);
-    setElapsedTime(0);
+  const handleToggleClock = useCallback(() => {
+    if (currentEntry) {
+      // Clock Out
+      const updatedEntry = { ...currentEntry, endTime: new Date().toISOString() };
+      setTimeEntries((prev) =>
+        prev.map((e) => (e.id === currentEntry.id ? updatedEntry : e))
+      );
+      setCurrentEntry(null);
+    } else {
+      // Clock In
+      const newEntry: TimeEntry = {
+        id: crypto.randomUUID(),
+        startTime: new Date().toISOString(),
+      };
+      setCurrentEntry(newEntry);
+      setTimeEntries((prev) => [...prev, newEntry]);
+    }
   }, [currentEntry]);
 
   const completedEntries = useMemo(
     () => timeEntries.filter((e) => e.endTime),
     [timeEntries]
   );
-
-  const calculateTotalHours = (entries: TimeEntry[]) => {
-    return entries.reduce((total, entry) => {
-      if (entry.endTime) {
-        const duration = differenceInMilliseconds(
-          new Date(entry.endTime),
-          new Date(entry.startTime)
-        );
-        return total + duration;
-      }
-      return total;
-    }, 0);
-  };
-
+  
   const dailyHours = useMemo(() => {
     const todayEntries = completedEntries.filter((e) =>
-      isSameDay(new Date(e.startTime), new Date())
+      isSameDay(new Date(e.startTime), now)
     );
-    return calculateTotalHours(todayEntries);
-  }, [completedEntries]);
+    return todayEntries.reduce((total, entry) => {
+      if (!entry.endTime) return total;
+      return total + differenceInMilliseconds(new Date(entry.endTime), new Date(entry.startTime));
+    }, 0);
+  }, [completedEntries, now]);
 
-  const weeklyHours = useMemo(() => {
-    const start = startOfWeek(new Date());
-    const end = endOfWeek(new Date());
-    const weekEntries = completedEntries.filter((e) =>
-      isWithinInterval(new Date(e.startTime), { start, end })
-    );
-    return calculateTotalHours(weekEntries);
-  }, [completedEntries]);
+  const progress = useMemo(() => {
+    const totalMilliseconds = WORK_HOURS_PER_DAY * 60 * 60 * 1000;
+    if (totalMilliseconds === 0) return 0;
+    return Math.min(100, (dailyHours / totalMilliseconds) * 100);
+  }, [dailyHours]);
 
-  const reportHours = useMemo(() => {
-    if (!reportRange?.from || !reportRange?.to) return 0;
-    const reportEntries = completedEntries.filter((e) =>
-      isWithinInterval(new Date(e.startTime), {
-        start: reportRange.from!,
-        end: reportRange.to!,
-      })
-    );
-    return calculateTotalHours(reportEntries);
-  }, [completedEntries, reportRange]);
+  const lastEntryToday = useMemo(() => {
+    const todayCompletedEntries = completedEntries
+      .filter((e) => isSameDay(new Date(e.startTime), now) && e.endTime)
+      .sort((a,b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+    return todayCompletedEntries[todayCompletedEntries.length - 1];
+  }, [completedEntries, now]);
 
-  const calendarDayEntries = useMemo(() => {
-    const daysWithEntries = new Set<string>();
-    completedEntries.forEach((entry) => {
-      daysWithEntries.add(format(new Date(entry.startTime), "yyyy-MM-dd"));
-    });
-    return Array.from(daysWithEntries).map(
-      (dateStr) => new Date(dateStr + "T12:00:00")
-    );
-  }, [completedEntries]);
+  const timeBank = useMemo(() => {
+    const weekStart = startOfWeek(now, { weekStartsOn: 1 });
+    const today = startOfToday();
+    const daysInWeekSoFar = eachDayOfInterval({ start: weekStart, end: today });
+    
+    const workDaysSoFar = daysInWeekSoFar.filter(day => !isWeekend(day));
+    const targetHoursMs = workDaysSoFar.length * WORK_HOURS_PER_DAY * 60 * 60 * 1000;
 
-  const handleDownloadReport = useCallback(() => {
-    if (!reportRange?.from || !reportRange?.to) return;
-    const reportEntries = completedEntries
-      .filter((e) =>
-        isWithinInterval(new Date(e.startTime), {
-          start: reportRange.from!,
-          end: reportRange.to!,
-        })
-      )
-      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
-  
-    let csvContent = "data:text/csv;charset=utf-8,Date,Clock In,Clock Out,Duration (HH:MM)\n";
-  
-    reportEntries.forEach(entry => {
-      if (entry.endTime) {
-        const date = format(new Date(entry.startTime), "yyyy-MM-dd");
-        const clockIn = format(new Date(entry.startTime), "HH:mm:ss");
-        const clockOut = format(new Date(entry.endTime), "HH:mm:ss");
-        
-        const durationMs = differenceInMilliseconds(new Date(entry.endTime), new Date(entry.startTime));
-        const hours = Math.floor(durationMs / 3600000);
-        const minutes = Math.floor((durationMs % 3600000) / 60000);
-        const durationFormatted = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-  
-        csvContent += `${date},${clockIn},${clockOut},${durationFormatted}\n`;
-      }
+    const weeklyEntries = completedEntries.filter((e) => {
+       const entryDate = new Date(e.startTime);
+       return isAfter(entryDate, weekStart) && isBefore(entryDate, today);
     });
 
-    const totalHours = Math.floor(reportHours / 3600000);
-    const totalMinutes = Math.floor((reportHours % 3600000) / 60000);
-    csvContent += `\nTotal,,,"${totalHours}h ${totalMinutes}m"`;
+    const weeklyHoursMs = weeklyEntries.reduce((total, entry) => {
+      if(!entry.endTime) return total;
+      return total + differenceInMilliseconds(new Date(entry.endTime), new Date(entry.startTime));
+    }, 0);
+    
+    const bankMs = (weeklyHoursMs + dailyHours) - targetHoursMs;
+    const sign = bankMs >= 0 ? "+" : "-";
+    return `${sign}${formatDuration(Math.abs(bankMs))}`;
+  }, [completedEntries, dailyHours, now]);
   
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `clockwise_report_${format(reportRange.from, "yyyy-MM-dd")}_to_${format(reportRange.to, "yyyy-MM-dd")}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  }, [completedEntries, reportRange, reportHours]);
+  const todayEntriesForHistory = useMemo(() => {
+    return timeEntries
+      .filter(e => isSameDay(new Date(e.startTime), now))
+      .sort((a,b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+  }, [timeEntries, now]);
+
 
   if (!isClient) {
-    return null; // or a loading skeleton
+    return (
+      <div className="dark bg-background flex min-h-screen items-center justify-center" />
+    );
   }
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <header className="p-4 border-b">
-        <div className="container mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Logo className="h-8 w-8 text-primary" />
-            <h1 className="text-2xl font-bold font-headline text-primary">
-              Clockwise
-            </h1>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {format(new Date(), "eeee, MMMM do")}
+    <main className="bg-background text-foreground flex flex-col items-center justify-center min-h-screen p-4 space-y-6 md:space-y-8 font-body text-center">
+      <div className="absolute top-6 text-center">
+        <h1 className="text-3xl md:text-4xl font-bold text-white">Registro Fácil</h1>
+        <p className="text-muted-foreground capitalize">
+          {format(now, "dd/MM/yyyy - eeee", { locale: ptBR })}
+        </p>
+      </div>
+
+      <div className="flex items-center gap-2 text-lg text-muted-foreground">
+        <Clock size={18} />
+        <span>{currentEntry ? `Em expediente desde ${formatTime(new Date(currentEntry.startTime))}` : "Fora do expediente"}</span>
+      </div>
+
+      <div className="w-full max-w-xs md:max-w-sm">
+        <div className="flex justify-between items-center mb-1 text-sm">
+          <span className="flex items-center gap-2 font-semibold">
+            <TrendingUp size={18} className="text-primary" /> Progresso do dia
+          </span>
+          <span className="text-muted-foreground">
+            {formatDuration(dailyHours)} / {WORK_HOURS_PER_DAY}h
+          </span>
+        </div>
+        <Progress value={progress} className="h-2" />
+        <p className="text-center text-sm mt-1 text-muted-foreground">
+          {progress.toFixed(0)}% concluído
+        </p>
+      </div>
+
+      <Button
+        onClick={handleToggleClock}
+        className="w-40 h-40 md:w-48 md:h-48 rounded-full flex flex-col items-center justify-center text-xl md:text-2xl font-bold shadow-lg bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-300 ease-in-out transform hover:scale-105"
+      >
+        {currentEntry ? (
+          <>
+            <LogOut className="mb-2" size={32} />
+            <span>Registrar</span>
+            <span className="text-base font-normal">Saída</span>
+          </>
+        ) : (
+          <>
+            <LogIn className="mb-2" size={32} />
+            <span>Registrar</span>
+            <span className="text-base font-normal">Entrada</span>
+          </>
+        )}
+      </Button>
+       {currentEntry && (
+        <div className="text-4xl font-mono tracking-widest">
+            {formatDuration(elapsedTime)}
+        </div>
+       )}
+
+      <div className="flex justify-between items-center w-full max-w-xs md:max-w-sm p-4 bg-muted/50 rounded-lg">
+        <div>
+          <p className="text-sm text-muted-foreground">Último registro</p>
+          <p className="text-lg font-semibold text-white">
+            {lastEntryToday ? `Saída às ${formatTime(new Date(lastEntryToday.endTime!))}` : "Nenhum registro hoje"}
           </p>
         </div>
-      </header>
+        <Clock size={24} className="text-muted-foreground" />
+      </div>
 
-      <main className="flex-grow container mx-auto p-4 md:p-8">
-        <div className="grid gap-8 lg:grid-cols-3">
-          <div className="lg:col-span-1 flex flex-col gap-8">
-            <Card className="shadow-lg">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Clock className="w-6 h-6" />
-                  Time Control
-                </CardTitle>
-                <CardDescription>
-                  Start or stop your work timer.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col items-center gap-4">
-                {currentEntry && (
-                  <div className="text-5xl font-mono bg-secondary text-secondary-foreground rounded-lg p-4 w-full text-center">
-                    {formatDuration(elapsedTime)}
-                  </div>
-                )}
-                <div className="grid grid-cols-2 gap-4 w-full">
-                  <Button
-                    size="lg"
-                    onClick={handleClockIn}
-                    disabled={!!currentEntry}
-                  >
-                    <LogIn className="mr-2 h-5 w-5" /> Clock In
-                  </Button>
-                  <Button
-                    size="lg"
-                    variant="destructive"
-                    onClick={handleClockOut}
-                    disabled={!currentEntry}
-                  >
-                    <LogOut className="mr-2 h-5 w-5" /> Clock Out
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Daily Summary</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold text-primary">
-                  {formatDuration(dailyHours)}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Total hours worked today.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Weekly Summary</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold text-accent">
-                  {formatDuration(weeklyHours)}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Total hours this week.
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="lg:col-span-2 flex flex-col gap-8">
-            <Card className="shadow-lg">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CalendarIcon className="w-6 h-6" />
-                  Work Calendar
-                </CardTitle>
-                <CardDescription>
-                  Days with logged time are highlighted.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex justify-center">
-                <Calendar
-                  mode="multiple"
-                  selected={calendarDayEntries}
-                  modifiersClassNames={{
-                    selected: "bg-primary text-primary-foreground",
-                  }}
-                  className="rounded-md border"
-                />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart className="w-6 h-6" />
-                  Reports
-                </CardTitle>
-                <CardDescription>
-                  Generate a report for a specific period.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-2">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        id="date"
-                        variant={"outline"}
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !reportRange && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {reportRange?.from ? (
-                          reportRange.to ? (
-                            <>
-                              {format(reportRange.from, "LLL dd, y")} -{" "}
-                              {format(reportRange.to, "LLL dd, y")}
-                            </>
-                          ) : (
-                            format(reportRange.from, "LLL dd, y")
-                          )
-                        ) : (
-                          <span>Pick a date range</span>
-                        )}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        initialFocus
-                        mode="range"
-                        defaultMonth={reportRange?.from}
-                        selected={reportRange}
-                        onSelect={setReportRange}
-                        numberOfMonths={2}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                <div>
-                  <p className="text-sm font-medium">Total hours in period:</p>
-                  <p className="text-2xl font-bold text-primary">
-                    {formatDuration(reportHours)}
-                  </p>
-                </div>
-              </CardContent>
-              <CardFooter>
-                 <Button onClick={handleDownloadReport} disabled={!reportRange?.from || !reportRange?.to}>
-                    <Download className="mr-2 h-4 w-4" />
-                    Download Report
-                </Button>
-              </CardFooter>
-            </Card>
-          </div>
+      <div className="flex justify-between items-center w-full max-w-xs md:max-w-sm p-4 bg-muted/50 rounded-lg">
+        <div>
+          <p className="text-sm text-muted-foreground">Banco de horas (semana)</p>
+          <p className="text-lg font-semibold text-accent">
+            {timeBank}
+          </p>
         </div>
-      </main>
-      <footer className="py-4 mt-8 border-t">
-        <div className="container mx-auto text-center text-sm text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} Clockwise. All rights reserved.</p>
-        </div>
-      </footer>
-    </div>
+        <TrendingUp size={24} className="text-accent" />
+      </div>
+
+      <div className="flex gap-4 pt-4">
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="outline" className="bg-muted/50 border-muted-foreground/20 hover:bg-muted">
+              <BarChart className="mr-2 h-4 w-4" /> Histórico
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Histórico do Dia</AlertDialogTitle>
+              <AlertDialogDescription>
+                Seus registros de ponto para hoje, {format(now, "dd/MM/yyyy")}.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <ScrollArea className="h-72">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Entrada</TableHead>
+                    <TableHead>Saída</TableHead>
+                    <TableHead className="text-right">Duração</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {todayEntriesForHistory.length > 0 ? todayEntriesForHistory.map(entry => (
+                    <TableRow key={entry.id}>
+                      <TableCell>{format(new Date(entry.startTime), 'HH:mm:ss')}</TableCell>
+                      <TableCell>{entry.endTime ? format(new Date(entry.endTime), 'HH:mm:ss') : 'Em andamento'}</TableCell>
+                      <TableCell className="text-right">{entry.endTime ? formatDuration(differenceInMilliseconds(new Date(entry.endTime), new Date(entry.startTime))) : '-'}</TableCell>
+                    </TableRow>
+                  )) : (
+                    <TableRow>
+                       <TableCell colSpan={3} className="text-center">Nenhum registro hoje.</TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Fechar</AlertDialogCancel>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <Button variant="outline" className="bg-muted/50 border-muted-foreground/20 hover:bg-muted" disabled>
+          <Settings className="mr-2 h-4 w-4" /> Configurações
+        </Button>
+      </div>
+    </main>
   );
 }
