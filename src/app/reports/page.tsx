@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useState, useEffect, useMemo } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { ArrowLeft, Clock, TrendingUp, Pencil, Calendar as CalendarIcon } from 'lucide-react';
+import { ArrowLeft, Clock, TrendingUp, Pencil, Calendar as CalendarIcon, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Calendar } from '@/components/ui/calendar';
@@ -386,7 +386,7 @@ export default function ReportsPage() {
                                                             <Clock size={16} className="text-muted-foreground" />
                                                             <span>{event.label}</span>
                                                         </div>
-                                                        <span className="font-mono text-muted-foreground">{format(new Date(event.time), "HH:mm:ss")}</span>
+                                                        <span className="font-mono text-foreground bg-muted px-2 py-1 rounded-md text-xs">{format(new Date(event.time), "HH:mm:ss")}</span>
                                                     </div>
                                                 ))}
                                                 <Separator className="my-4"/>
@@ -396,13 +396,15 @@ export default function ReportsPage() {
                                                 </div>
                                             </div>
                                         ) : (
-                                            <div className="flex items-center justify-center h-full text-muted-foreground pt-10 text-center">
+                                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-center gap-4">
+                                                <CalendarDays size={48} />
                                                 <p>Nenhum registro de ponto <br/>para este dia.</p>
                                             </div>
                                         )}
                                     </div>
                                 ) : (
-                                    <div className="flex items-center justify-center h-full text-muted-foreground text-center">
+                                    <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-center gap-4">
+                                        <CalendarDays size={48} />
                                         <p>Selecione um dia no calendário <br/>para ver os detalhes.</p>
                                     </div>
                                 )}

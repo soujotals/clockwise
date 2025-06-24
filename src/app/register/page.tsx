@@ -59,10 +59,10 @@ export default function RegisterPage() {
     <main className="flex items-center justify-center min-h-screen bg-background p-4 font-sans">
       <Card className="w-full max-w-sm animate-in fade-in-0 zoom-in-95 duration-500">
         <CardHeader className="text-center">
-          <div className="mx-auto h-12 w-12 text-primary">
+          <div className="mx-auto h-16 w-16 text-primary">
             <Logo />
           </div>
-          <CardTitle className="mt-4 text-2xl">Criar uma conta</CardTitle>
+          <CardTitle className="mt-6 text-2xl">Criar uma conta</CardTitle>
           <CardDescription>Crie sua conta para começar a usar o Registro Fácil.</CardDescription>
         </CardHeader>
         <CardContent>

@@ -16,9 +16,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Separator } from '@/components/ui/separator';
 import { useToast } from "@/hooks/use-toast";
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Workdays, AppSettings, getSettings, saveSettings } from '@/services/settings.service';
 
 const defaultWorkdays: Workdays = {
@@ -170,131 +169,137 @@ export default function SettingsPage() {
         <h1 className="text-xl font-bold ml-4">Configurações</h1>
       </header>
 
-      <main className="p-4 md:p-6 space-y-8 max-w-2xl mx-auto w-full flex-grow animate-in fade-in-0 duration-500">
-        <section className="space-y-6 animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-100">
-          <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold flex items-center gap-3">
-              <Briefcase className="text-primary" />
-              Minha Jornada de Trabalho
-            </h2>
-             {hasChanges && (
-                <Button onClick={handleSave} size="sm">
-                  <Save className="mr-2 h-4 w-4" />
-                  Salvar Alterações
-                </Button>
-              )}
-          </div>
+      <main className="p-4 md:p-6 space-y-6 max-w-2xl mx-auto w-full flex-grow animate-in fade-in-0 duration-500">
+        <Card className="animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-100">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-3">
+                    <Briefcase className="text-primary" />
+                    Minha Jornada de Trabalho
+                </CardTitle>
+                 <CardDescription>
+                    Defina sua carga horária e dias de trabalho para calcular sua meta diária.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+                <div>
+                    <div className="flex items-center gap-2 mb-2">
+                        <Label htmlFor="weekly-hours">Carga horária semanal</Label>
+                        <TooltipProvider delayDuration={0}>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-5 w-5 hover:bg-transparent">
+                                        <Info size={14} className="text-muted-foreground" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Defina o total de horas de trabalho esperadas para a semana.</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    </div>
+                    <div className="flex items-center gap-2">
+                    <Input
+                        id="weekly-hours"
+                        type="number"
+                        value={weeklyHours}
+                        onChange={(e) => setWeeklyHours(e.target.value)}
+                        className="w-24 bg-input border-border" />
+                    <span>horas</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">Exemplo: 40, 44, 30 - conforme seu contrato.</p>
+                </div>
 
-          <div className="space-y-6 pl-9">
-            <div>
-                <div className="flex items-center gap-2 mb-2">
-                    <Label htmlFor="weekly-hours">Carga horária semanal</Label>
-                    <TooltipProvider delayDuration={0}>
+                <div className="space-y-2">
+                <Label>Dias da semana</Label>
+                <div className="flex items-center gap-2 flex-wrap">
+                    {(Object.keys(dayLabels) as Array<keyof typeof dayLabels>).map((day) => (
+                    <TooltipProvider key={day} delayDuration={100}>
                         <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-5 w-5 hover:bg-transparent">
-                                    <Info size={14} className="text-muted-foreground" />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>Defina o total de horas de trabalho esperadas para a semana.</p>
-                            </TooltipContent>
+                        <TooltipTrigger asChild>
+                            <Button
+                            variant={workdays[day] ? "default" : "outline"}
+                            size="icon"
+                            onClick={() => handleToggleDay(day)}
+                            className="rounded-full w-9 h-9"
+                            >
+                            {dayLabels[day].toUpperCase()}
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>{dayFullNames[day]}</p>
+                        </TooltipContent>
                         </Tooltip>
                     </TooltipProvider>
+                    ))}
                 </div>
-                <div className="flex items-center gap-2">
-                  <Input
-                    id="weekly-hours"
-                    type="number"
-                    value={weeklyHours}
-                    onChange={(e) => setWeeklyHours(e.target.value)}
-                    className="w-24 bg-input border-border" />
-                  <span>horas</span>
+                <p className="text-xs text-muted-foreground">Selecione os dias que você trabalha para o cálculo da jornada diária.</p>
                 </div>
-                 <p className="text-xs text-muted-foreground mt-1">Exemplo: 40, 44, 30 - conforme seu contrato.</p>
-            </div>
+            
+                <Card className="border-primary/50 bg-primary/10">
+                <CardContent className="p-3">
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <p className="font-semibold text-primary text-sm">Distribuição automática</p>
+                            <p className="text-sm text-primary/80">{dailyHoursDistribution}</p>
+                        </div>
+                    </div>
+                </CardContent>
+                </Card>
+            </CardContent>
+            {hasChanges && (
+                <CardFooter>
+                    <Button onClick={handleSave} className="ml-auto">
+                        <Save className="mr-2 h-4 w-4" />
+                        Salvar Alterações
+                    </Button>
+                </CardFooter>
+            )}
+        </Card>
 
-            <div className="space-y-2">
-              <Label>Dias da semana</Label>
-              <div className="flex items-center gap-2 flex-wrap">
-                {(Object.keys(dayLabels) as Array<keyof typeof dayLabels>).map((day) => (
-                  <TooltipProvider key={day} delayDuration={100}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant={workdays[day] ? "default" : "outline"}
-                          size="icon"
-                          onClick={() => handleToggleDay(day)}
-                          className="rounded-full w-9 h-9"
-                        >
-                          {dayLabels[day].toUpperCase()}
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{dayFullNames[day]}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground">Selecione os dias que você trabalha para o cálculo da jornada diária.</p>
-            </div>
-          
-            <Card className="border-primary/50 bg-primary/10">
-              <CardContent className="p-4">
-                  <div className="flex justify-between items-center">
-                      <div>
-                          <p className="font-semibold text-primary">Distribuição automática</p>
-                          <p className="text-sm text-primary/80">{dailyHoursDistribution}</p>
-                      </div>
-                  </div>
-              </CardContent>
-            </Card>
-          </div>
-        </section>
-
-        <Separator />
-
-        <section className="space-y-4 animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-200">
-            <h2 className="text-lg font-semibold flex items-center gap-3">
-                <Clock className="text-primary"/>
-                Exibição
-            </h2>
-            <div className="flex justify-between items-center pl-9">
-                <div>
-                    <Label htmlFor="time-format">Formato de hora</Label>
-                    <p className="text-sm text-muted-foreground">12h (AM/PM) ou 24h</p>
+        <Card className="animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-200">
+             <CardHeader>
+                <CardTitle className="flex items-center gap-3">
+                    <Clock className="text-primary"/>
+                    Exibição
+                </CardTitle>
+            </CardHeader>
+            <CardContent>
+                 <div className="flex justify-between items-center">
+                    <div>
+                        <Label htmlFor="time-format">Formato de hora</Label>
+                        <p className="text-sm text-muted-foreground">12h (AM/PM) ou 24h</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className={`text-sm transition-colors ${!is24hFormat ? 'text-foreground' : 'text-muted-foreground'}`}>12h</span>
+                        <Switch id="time-format" checked={is24hFormat} onCheckedChange={setIs24hFormat} />
+                        <span className={`text-sm transition-colors ${is24hFormat ? 'text-foreground' : 'text-muted-foreground'}`}>24h</span>
+                    </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    <span className={`text-sm transition-colors ${!is24hFormat ? 'text-foreground' : 'text-muted-foreground'}`}>12h</span>
-                    <Switch id="time-format" checked={is24hFormat} onCheckedChange={setIs24hFormat} />
-                    <span className={`text-sm transition-colors ${is24hFormat ? 'text-foreground' : 'text-muted-foreground'}`}>24h</span>
-                </div>
-            </div>
-        </section>
+            </CardContent>
+        </Card>
         
-        <Separator />
-
-        <section className="space-y-4 animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-300">
-             <h2 className="text-lg font-semibold flex items-center gap-3">
-                <Bell className="text-primary"/>
-                Notificações
-            </h2>
-            <div className="flex justify-between items-center pl-9">
-                <div>
-                    <Label htmlFor="reminders" className="cursor-pointer">Lembretes de ponto</Label>
-                    <p className="text-sm text-muted-foreground">Receba notificações para registrar o ponto</p>
+        <Card className="animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-300">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-3">
+                    <Bell className="text-primary"/>
+                    Notificações
+                </CardTitle>
+            </CardHeader>
+            <CardContent>
+                <div className="flex justify-between items-center">
+                    <div>
+                        <Label htmlFor="reminders" className="cursor-pointer">Lembretes de ponto</Label>
+                        <p className="text-sm text-muted-foreground">Receba notificações para registrar o ponto</p>
+                    </div>
+                    <Switch id="reminders" checked={enableReminders} onCheckedChange={setEnableReminders} />
                 </div>
-                <Switch id="reminders" checked={enableReminders} onCheckedChange={setEnableReminders} />
-            </div>
-        </section>
-      </main>
+            </CardContent>
+        </Card>
 
-      <footer className="text-center p-6 mt-auto">
-        <Separator className="mb-6 max-w-xs mx-auto" />
-        <p className="font-semibold text-sm">Registro Fácil</p>
-        <p className="text-xs text-muted-foreground">Versão 1.2.0</p>
-      </footer>
+        <p className="text-center text-xs text-muted-foreground pt-8">
+            Registro Fácil v1.2.0
+        </p>
+      </main>
     </div>
   );
 }

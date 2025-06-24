@@ -635,7 +635,7 @@ export default function RegistroFacilPage() {
                             }, 0);
 
                             return (
-                                <Card key={day} className="bg-muted/30">
+                                <Card key={day} className="bg-muted">
                                     <CardHeader className="flex flex-row items-center justify-between p-4">
                                         <div>
                                             <CardTitle className="text-base font-bold">
@@ -653,7 +653,7 @@ export default function RegistroFacilPage() {
                                     <CardContent className="p-4 pt-0">
                                         <div className="space-y-1">
                                             {events.map((event) => (
-                                                <div key={event.id} className="flex items-center justify-between rounded-md p-2 hover:bg-background/50">
+                                                <div key={event.id} className="flex items-center justify-between rounded-md px-2 py-3 hover:bg-muted/50">
                                                     <div className="flex items-center gap-3">
                                                         <div className="flex items-center justify-center h-8 w-8 rounded-full bg-primary/10 text-primary">
                                                           <Clock size={16} />
