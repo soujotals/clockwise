@@ -6,9 +6,10 @@ import { useRouter } from 'next/navigation';
 import { useState, useEffect, useMemo } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { ArrowLeft, Clock, TrendingUp, Pencil } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { ArrowLeft, Clock, TrendingUp, Pencil, Calendar as CalendarIcon } from 'lucide-react';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Calendar } from '@/components/ui/calendar';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,8 +31,10 @@ import {
   startOfToday,
   startOfDay,
 } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { TimeEntry, getTimeEntries } from '@/services/time-entry.service';
 import { Workdays, AppSettings, getSettings, saveSettings } from '@/services/settings.service';
+import { cn } from '@/lib/utils';
 
 const defaultWorkdays: Workdays = {
   sun: false,
@@ -72,6 +75,7 @@ export default function ReportsPage() {
     const [isAdjustmentDialogOpen, setIsAdjustmentDialogOpen] = useState(false);
     const [adjustmentValue, setAdjustmentValue] = useState("00:00");
     const [adjustmentSign, setAdjustmentSign] = useState('+');
+    const [month, setMonth] = useState(new Date());
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -116,6 +120,26 @@ export default function ReportsPage() {
         const timer = setInterval(() => setNow(new Date()), 1000);
         return () => clearInterval(timer);
     }, [isLoading]);
+    
+    const dailyTotals = useMemo(() => {
+        const totals: Record<string, number> = {};
+        if (!timeEntries) return totals;
+
+        timeEntries.forEach(entry => {
+            if (entry.endTime) {
+                const dayKey = format(new Date(entry.startTime), 'yyyy-MM-dd');
+                const duration = differenceInMilliseconds(new Date(entry.endTime!), new Date(entry.startTime));
+                if (duration > 0) {
+                    if (totals[dayKey]) {
+                        totals[dayKey] += duration;
+                    } else {
+                        totals[dayKey] = duration;
+                    }
+                }
+            }
+        });
+        return totals;
+    }, [timeEntries]);
 
     const timeBank = useMemo(() => {
         const today = startOfToday();
@@ -250,9 +274,55 @@ export default function ReportsPage() {
                             <CardDescription>Seu saldo de horas acumulado até o momento.</CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <p className={`text-4xl sm:text-6xl font-bold ${timeBank.startsWith('+') || timeBank === "00h00m" ? 'text-primary' : 'text-destructive'}`}>
+                            <p className={`text-4xl sm:text-5xl font-bold ${timeBank.startsWith('+') || timeBank === "00h00m" ? 'text-primary' : 'text-destructive'}`}>
                                 {timeBank}
                             </p>
+                        </CardContent>
+                    </Card>
+                </section>
+
+                <section className="space-y-6 animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-200">
+                    <h2 className="text-lg font-semibold flex items-center gap-3">
+                        <CalendarIcon className="text-primary" />
+                        Registros por Dia
+                    </h2>
+                    <Card>
+                        <CardContent className="p-1 sm:p-2 md:p-4">
+                            <Calendar
+                                month={month}
+                                onMonthChange={setMonth}
+                                locale={ptBR}
+                                className="p-0"
+                                classNames={{
+                                    cell: "text-center text-sm p-0 relative focus-within:relative focus-within:z-20",
+                                    day: "h-16 w-full p-1 font-normal",
+                                }}
+                                components={{
+                                    Day: ({ date, displayMonth }) => {
+                                        const dayKey = format(date, 'yyyy-MM-dd');
+                                        const totalMillis = dailyTotals[dayKey];
+                                        const isCurrentMonth = date.getMonth() === displayMonth.getMonth();
+                                        const isToday = isSameDay(date, new Date());
+
+                                        return (
+                                            <div className={cn(
+                                                "flex flex-col h-full w-full items-center justify-start rounded-md p-2",
+                                                isToday && "bg-accent text-accent-foreground",
+                                                !isCurrentMonth && "text-muted-foreground opacity-50"
+                                            )}>
+                                                <div className={cn("font-medium", isToday ? "text-primary" : "")}>
+                                                    {format(date, 'd')}
+                                                </div>
+                                                {totalMillis > 0 && isCurrentMonth && (
+                                                    <div className="text-xs font-bold text-primary mt-1">
+                                                        {formatDuration(totalMillis).replace('+', '').replace('m', '').replace('h', ':')}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    }
+                                }}
+                            />
                         </CardContent>
                     </Card>
                 </section>
