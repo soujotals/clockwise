@@ -13,6 +13,7 @@ import {
   eachDayOfInterval,
   isBefore,
   startOfToday,
+  startOfDay,
 } from 'date-fns';
 
 type TimeEntry = {
@@ -86,17 +87,18 @@ export default function ReportsPage() {
     }, []);
 
     const timeBank = useMemo(() => {
-        const weekStart = startOfWeek(now, { weekStartsOn: 1 });
         const today = startOfToday();
-        const daysInWeekSoFar = eachDayOfInterval({ start: weekStart, end: today });
-      
-        const storedEntries: TimeEntry[] = timeEntries;
-        
-        const currentEntry = storedEntries
+
+        if (timeEntries.length === 0) {
+            return formatDuration(0);
+        }
+
+        // Today's worked hours calculation
+        const currentEntry = timeEntries
             .filter(entry => isSameDay(new Date(entry.startTime), now))
             .find(entry => !entry.endTime);
         
-        let dailyHours = storedEntries
+        let dailyHours = timeEntries
             .filter(e => e.endTime && isSameDay(new Date(e.startTime), now))
             .reduce((acc, entry) => {
             return acc + differenceInMilliseconds(new Date(entry.endTime!), new Date(entry.startTime));
@@ -106,33 +108,44 @@ export default function ReportsPage() {
             dailyHours += differenceInMilliseconds(now, new Date(currentEntry.startTime));
         }
 
-        let workedMs = 0;
-        let targetMs = 0;
-    
+        // Cumulative calculation
+        const firstEntryDate = timeEntries.reduce((earliest, entry) => {
+            const entryDate = new Date(entry.startTime);
+            return entryDate < earliest ? entryDate : earliest;
+        }, new Date());
+        const firstDay = startOfDay(firstEntryDate);
+
+        const allDaysToConsider = eachDayOfInterval({ start: firstDay, end: today });
+
+        let totalWorkedMs = 0;
+        let totalTargetMs = 0;
+
         const isConfiguredWorkday = (date: Date): boolean => {
-          const dayIndex = date.getDay();
-          const dayKey = dayMap[dayIndex];
-          return workdays[dayKey];
+            const dayIndex = date.getDay();
+            const dayKey = dayMap[dayIndex];
+            return workdays[dayKey];
         };
-      
-        daysInWeekSoFar.forEach(day => {
-          if (isConfiguredWorkday(day) && isBefore(day, today)) {
-            targetMs += workHoursPerDay * 60 * 60 * 1000;
-            const entriesOnDay = storedEntries.filter(e => isSameDay(new Date(e.startTime), day) && e.endTime);
+
+        const pastDays = allDaysToConsider.filter(day => isBefore(day, today));
+        pastDays.forEach(day => {
+            if (isConfiguredWorkday(day)) {
+                totalTargetMs += workHoursPerDay * 60 * 60 * 1000;
+            }
+
+            const entriesOnDay = timeEntries.filter(e => isSameDay(new Date(e.startTime), day) && e.endTime);
             const dailyTotal = entriesOnDay.reduce((total, entry) => {
-              return total + differenceInMilliseconds(new Date(entry.endTime!), new Date(entry.startTime));
+                return total + differenceInMilliseconds(new Date(entry.endTime!), new Date(entry.startTime));
             }, 0);
-            workedMs += dailyTotal;
-          }
+            totalWorkedMs += dailyTotal;
         });
-      
+
+        totalWorkedMs += dailyHours; 
+
         if (isConfiguredWorkday(today)) {
-            targetMs += workHoursPerDay * 60 * 60 * 1000;
+          totalTargetMs += workHoursPerDay * 60 * 60 * 1000;
         }
-      
-        const totalWorkedMs = workedMs + dailyHours;
-      
-        const bankMs = totalWorkedMs - targetMs;
+
+        const bankMs = totalWorkedMs - totalTargetMs;
         
         return formatDuration(bankMs);
     }, [now, timeEntries, workHoursPerDay, workdays]);
