@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import Link from "next/link";
 import {
   format,
   differenceInMilliseconds,
@@ -125,11 +126,15 @@ export default function RegistroFacilPage() {
     const todayEntries = completedEntries.filter((e) =>
       isSameDay(new Date(e.startTime), now)
     );
-    return todayEntries.reduce((total, entry) => {
+    let total = todayEntries.reduce((total, entry) => {
       if (!entry.endTime) return total;
       return total + differenceInMilliseconds(new Date(entry.endTime), new Date(entry.startTime));
     }, 0);
-  }, [completedEntries, now]);
+    if (currentEntry && isSameDay(new Date(currentEntry.startTime), now)) {
+        total += elapsedTime;
+    }
+    return total;
+  }, [completedEntries, now, currentEntry, elapsedTime]);
 
   const progress = useMemo(() => {
     const totalMilliseconds = WORK_HOURS_PER_DAY * 60 * 60 * 1000;
@@ -140,29 +145,41 @@ export default function RegistroFacilPage() {
   const lastEntryToday = useMemo(() => {
     const todayCompletedEntries = completedEntries
       .filter((e) => isSameDay(new Date(e.startTime), now) && e.endTime)
-      .sort((a,b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
-    return todayCompletedEntries[todayCompletedEntries.length - 1];
+      .sort((a,b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+    return todayCompletedEntries[0];
   }, [completedEntries, now]);
 
   const timeBank = useMemo(() => {
     const weekStart = startOfWeek(now, { weekStartsOn: 1 });
     const today = startOfToday();
-    const daysInWeekSoFar = eachDayOfInterval({ start: weekStart, end: today });
     
-    const workDaysSoFar = daysInWeekSoFar.filter(day => !isWeekend(day));
-    const targetHoursMs = workDaysSoFar.length * WORK_HOURS_PER_DAY * 60 * 60 * 1000;
+    // Consider only days from the start of the week up to yesterday
+    const daysInWeekSoFar = eachDayOfInterval({ start: weekStart, end: today });
 
-    const weeklyEntries = completedEntries.filter((e) => {
-       const entryDate = new Date(e.startTime);
-       return isAfter(entryDate, weekStart) && isBefore(entryDate, today);
+    let workedMs = 0;
+    let targetMs = 0;
+
+    daysInWeekSoFar.forEach(day => {
+        if (!isWeekend(day)) {
+            // Only add target hours for past workdays
+             if (isBefore(day, today)) {
+                targetMs += WORK_HOURS_PER_DAY * 60 * 60 * 1000;
+             }
+
+            const entriesOnDay = completedEntries.filter(e => isSameDay(new Date(e.startTime), day));
+            const dailyTotal = entriesOnDay.reduce((total, entry) => {
+                 if (!entry.endTime) return total;
+                 return total + differenceInMilliseconds(new Date(entry.endTime), new Date(entry.startTime));
+            }, 0);
+            workedMs += dailyTotal;
+        }
     });
 
-    const weeklyHoursMs = weeklyEntries.reduce((total, entry) => {
-      if(!entry.endTime) return total;
-      return total + differenceInMilliseconds(new Date(entry.endTime), new Date(entry.startTime));
-    }, 0);
+    // Add today's progress to the total worked time
+    const currentDayWorkedMs = dailyHours;
+
+    const bankMs = (workedMs + currentDayWorkedMs) - targetMs;
     
-    const bankMs = (weeklyHoursMs + dailyHours) - targetHoursMs;
     const sign = bankMs >= 0 ? "+" : "-";
     return `${sign}${formatDuration(Math.abs(bankMs))}`;
   }, [completedEntries, dailyHours, now]);
@@ -237,7 +254,7 @@ export default function RegistroFacilPage() {
         <div>
           <p className="text-sm text-muted-foreground">Último registro</p>
           <p className="text-lg font-semibold text-white">
-            {lastEntryToday ? `Saída às ${formatTime(new Date(lastEntryToday.endTime!))}` : "Nenhum registro hoje"}
+            {lastEntryToday && lastEntryToday.endTime ? `Saída às ${formatTime(new Date(lastEntryToday.endTime!))}` : "Nenhum registro hoje"}
           </p>
         </div>
         <Clock size={24} className="text-muted-foreground" />
@@ -297,8 +314,10 @@ export default function RegistroFacilPage() {
           </AlertDialogContent>
         </AlertDialog>
 
-        <Button variant="outline" className="bg-muted/50 border-muted-foreground/20 hover:bg-muted" disabled>
-          <Settings className="mr-2 h-4 w-4" /> Configurações
+        <Button variant="outline" className="bg-muted/50 border-muted-foreground/20 hover:bg-muted" asChild>
+          <Link href="/settings">
+            <Settings className="mr-2 h-4 w-4" /> Configurações
+          </Link>
         </Button>
       </div>
     </main>
