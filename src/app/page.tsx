@@ -46,7 +46,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { TimeEntry, getTimeEntries, addTimeEntry, updateTimeEntry, deleteTimeEntry } from "@/services/time-entry.service";
-import { Workdays, getSettings } from "@/services/settings.service";
+import { Workdays, AppSettings, getSettings } from "@/services/settings.service";
 
 
 type WorkdayStatus = 'NOT_STARTED' | 'WORKING' | 'ON_BREAK';
@@ -89,6 +89,7 @@ export default function RegistroFacilPage() {
   const [editingEvent, setEditingEvent] = useState<{ id: string } | null>(null);
   const [workHoursPerDay, setWorkHoursPerDay] = useState(8);
   const [workdays, setWorkdays] = useState<Workdays>(defaultWorkdays);
+  const [settings, setSettings] = useState<AppSettings | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -108,19 +109,20 @@ export default function RegistroFacilPage() {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const [entries, settings] = await Promise.all([
+        const [entries, settingsData] = await Promise.all([
           getTimeEntries(user.uid),
           getSettings(user.uid),
         ]);
         
         setTimeEntries(entries);
+        setSettings(settingsData);
         
-        if (settings) {
-          const savedWorkdays = settings.workdays || defaultWorkdays;
+        if (settingsData) {
+          const savedWorkdays = settingsData.workdays || defaultWorkdays;
           setWorkdays(savedWorkdays);
           const numberOfWorkDays = Object.values(savedWorkdays).filter(Boolean).length;
           if (numberOfWorkDays > 0) {
-            setWorkHoursPerDay((settings.weeklyHours || 40) / numberOfWorkDays);
+            setWorkHoursPerDay((settingsData.weeklyHours || 40) / numberOfWorkDays);
           } else {
             setWorkHoursPerDay(0);
           }
@@ -231,14 +233,15 @@ export default function RegistroFacilPage() {
   const timeBank = useMemo(() => {
     const today = startOfToday();
     
-    if (timeEntries.length === 0) {
+    if (timeEntries.length === 0 && !settings?.timeBankAdjustment) {
       return "+00h00m";
     }
 
-    const firstEntryDate = timeEntries.reduce((earliest, entry) => {
+    const firstEntryDate = timeEntries.length > 0 ? timeEntries.reduce((earliest, entry) => {
         const entryDate = new Date(entry.startTime);
         return entryDate < earliest ? entryDate : earliest;
-    }, new Date());
+    }, new Date()) : new Date();
+
     const firstDay = startOfDay(firstEntryDate);
 
     const allDaysToConsider = eachDayOfInterval({ start: firstDay, end: today });
@@ -272,9 +275,10 @@ export default function RegistroFacilPage() {
     }
 
     const bankMs = totalWorkedMs - totalTargetMs;
-    const sign = bankMs >= 0 ? "+" : "-";
-    return `${sign}${formatDuration(Math.abs(bankMs))}`;
-  }, [dailyHours, timeEntries, workHoursPerDay, workdays]);
+    const finalBankMs = bankMs + (settings?.timeBankAdjustment || 0);
+    const sign = finalBankMs >= 0 ? "+" : "-";
+    return `${sign}${formatDuration(Math.abs(finalBankMs))}`;
+  }, [dailyHours, timeEntries, workHoursPerDay, workdays, settings]);
 
   const lastEvent = useMemo(() => {
     const todayEntries = timeEntries.filter(e => isSameDay(new Date(e.startTime), now));

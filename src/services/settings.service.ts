@@ -14,6 +14,7 @@ export type Workdays = {
 export type AppSettings = {
   weeklyHours: number;
   workdays: Workdays;
+  timeBankAdjustment?: number; // Adjustment in milliseconds
 };
 
 const getSettingsDocRef = (userId: string) => doc(db, `users/${userId}/settings`, 'userSettings');
@@ -28,8 +29,8 @@ export const getSettings = async (userId: string): Promise<AppSettings | null> =
   return null;
 };
 
-export const saveSettings = async (userId: string, settings: AppSettings): Promise<void> => {
+export const saveSettings = async (userId: string, settings: Partial<AppSettings>): Promise<void> => {
   if (!userId) throw new Error("User not authenticated");
   const settingsDocRef = getSettingsDocRef(userId);
-  await setDoc(settingsDocRef, settings);
+  await setDoc(settingsDocRef, settings, { merge: true });
 };
