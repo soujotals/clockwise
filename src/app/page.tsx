@@ -92,6 +92,7 @@ export default function RegistroFacilPage() {
   const [workHoursPerDay, setWorkHoursPerDay] = useState(8);
   const [workdays, setWorkdays] = useState<Workdays>(defaultWorkdays);
   const [settings, setSettings] = useState<AppSettings | null>(null);
+  const [showEarlyLeaveWarning, setShowEarlyLeaveWarning] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -448,6 +449,17 @@ export default function RegistroFacilPage() {
       });
     }
   };
+
+  const handleMainButtonClick = () => {
+    if (workdayStatus === 'WORKING_AFTER_BREAK') {
+      const totalMilliseconds = workHoursPerDay * 60 * 60 * 1000;
+      if (totalMilliseconds > 0 && dailyHours < totalMilliseconds) {
+        setShowEarlyLeaveWarning(true);
+        return;
+      }
+    }
+    handleClockAction();
+  };
   
   const buttonConfig = useMemo(() => {
     switch (workdayStatus) {
@@ -541,7 +553,7 @@ export default function RegistroFacilPage() {
         </div>
 
         <Button
-          onClick={handleClockAction}
+          onClick={handleMainButtonClick}
           disabled={buttonConfig.disabled}
           className="w-48 h-48 md:w-56 md:h-56 rounded-full flex flex-col items-center justify-center text-xl md:text-2xl font-bold shadow-2xl shadow-primary/20 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-300 ease-in-out transform hover:scale-105 disabled:bg-muted disabled:scale-100 disabled:cursor-not-allowed animate-in fade-in-0 zoom-in-95 duration-500 delay-300"
         >
@@ -714,6 +726,22 @@ export default function RegistroFacilPage() {
           </Button>
         </div>
       </div>
+      <AlertDialog open={showEarlyLeaveWarning} onOpenChange={setShowEarlyLeaveWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Encerrar expediente mais cedo?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você ainda não completou sua jornada de trabalho hoje. A diferença será registrada no seu banco de horas. Deseja continuar?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleClockAction}>
+              Sim, encerrar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   );
 }
