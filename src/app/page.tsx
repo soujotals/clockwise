@@ -360,8 +360,8 @@ export default function RegistroFacilPage() {
   }
 
   return (
-    <main className="bg-background text-foreground flex flex-col items-center justify-center min-h-screen p-4 space-y-6 md:space-y-8 font-body text-center">
-      <div className="absolute top-6 text-center">
+    <main className="bg-background text-foreground flex flex-col items-center justify-center min-h-screen p-4 space-y-4 md:space-y-6 font-body text-center">
+      <div className="text-center">
         <h1 className="text-3xl md:text-4xl font-bold text-white">Registro Fácil</h1>
         <p className="text-muted-foreground capitalize">
           {format(now, "dd/MM/yyyy - eeee", { locale: ptBR })}
