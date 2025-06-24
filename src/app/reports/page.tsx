@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useState, useEffect, useMemo } from 'react';
 import { ArrowLeft, Clock, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -43,36 +44,45 @@ const formatDuration = (milliseconds: number) => {
 
 
 export default function ReportsPage() {
-    const [isClient, setIsClient] = useState(false);
+    const router = useRouter();
+    const [isLoading, setIsLoading] = useState(true);
     const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
     const [workHoursPerDay, setWorkHoursPerDay] = useState(8);
     const [workdays, setWorkdays] = useState<Workdays>(defaultWorkdays);
     const [now, setNow] = useState(new Date());
 
     useEffect(() => {
-        const fetchData = async () => {
-            const [entries, settings] = await Promise.all([
-                getTimeEntries(),
-                getSettings()
-            ]);
-            setTimeEntries(entries);
-            if (settings) {
-                const savedWorkdays = settings.workdays || defaultWorkdays;
-                setWorkdays(savedWorkdays);
-                const numberOfWorkDays = Object.values(savedWorkdays).filter(Boolean).length;
-                if (numberOfWorkDays > 0) {
-                    setWorkHoursPerDay((settings.weeklyHours || 40) / numberOfWorkDays);
-                } else {
-                    setWorkHoursPerDay(0);
+        const isLoggedIn = localStorage.getItem('isLoggedIn');
+        if (isLoggedIn !== 'true') {
+            router.replace('/login');
+        } else {
+            const fetchData = async () => {
+                const [entries, settings] = await Promise.all([
+                    getTimeEntries(),
+                    getSettings()
+                ]);
+                setTimeEntries(entries);
+                if (settings) {
+                    const savedWorkdays = settings.workdays || defaultWorkdays;
+                    setWorkdays(savedWorkdays);
+                    const numberOfWorkDays = Object.values(savedWorkdays).filter(Boolean).length;
+                    if (numberOfWorkDays > 0) {
+                        setWorkHoursPerDay((settings.weeklyHours || 40) / numberOfWorkDays);
+                    } else {
+                        setWorkHoursPerDay(0);
+                    }
                 }
-            }
-            setIsClient(true);
-        };
-        fetchData();
-        
+                setIsLoading(false);
+            };
+            fetchData();
+        }
+    }, [router]);
+    
+    useEffect(() => {
+        if (isLoading) return;
         const timer = setInterval(() => setNow(new Date()), 1000);
         return () => clearInterval(timer);
-    }, []);
+    }, [isLoading]);
 
     const timeBank = useMemo(() => {
         const today = startOfToday();
@@ -136,7 +146,7 @@ export default function ReportsPage() {
         return formatDuration(bankMs);
     }, [now, timeEntries, workHoursPerDay, workdays]);
     
-    if (!isClient) {
+    if (isLoading) {
         return <div className="dark bg-background flex min-h-screen items-center justify-center"><Clock className="animate-spin h-10 w-10 text-primary" /></div>;
     }
 

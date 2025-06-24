@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useState, useEffect, useMemo } from 'react';
 import { ArrowLeft, Briefcase, Clock, Bell, Info, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -49,8 +50,9 @@ const dayFullNames: { [key in keyof Workdays]: string } = {
 };
 
 export default function SettingsPage() {
+  const router = useRouter();
   const { toast } = useToast();
-  const [isClient, setIsClient] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [weeklyHours, setWeeklyHours] = useState<string | number>(40);
   const [initialWeeklyHours, setInitialWeeklyHours] = useState<string | number>(40);
   const [workdays, setWorkdays] = useState<Workdays>(defaultWorkdays);
@@ -59,20 +61,25 @@ export default function SettingsPage() {
   const [enableReminders, setEnableReminders] = useState(true);
 
   useEffect(() => {
-    const fetchInitialSettings = async () => {
-      const settings = await getSettings();
-      if (settings) {
-        const hours = settings.weeklyHours || 40;
-        setWeeklyHours(hours);
-        setInitialWeeklyHours(hours);
-        const savedWorkdays = settings.workdays || defaultWorkdays;
-        setWorkdays(savedWorkdays);
-        setInitialWorkdays(savedWorkdays);
-      }
-      setIsClient(true);
-    };
-    fetchInitialSettings();
-  }, []);
+    const isLoggedIn = localStorage.getItem('isLoggedIn');
+    if (isLoggedIn !== 'true') {
+        router.replace('/login');
+    } else {
+        const fetchInitialSettings = async () => {
+          const settings = await getSettings();
+          if (settings) {
+            const hours = settings.weeklyHours || 40;
+            setWeeklyHours(hours);
+            setInitialWeeklyHours(hours);
+            const savedWorkdays = settings.workdays || defaultWorkdays;
+            setWorkdays(savedWorkdays);
+            setInitialWorkdays(savedWorkdays);
+          }
+          setIsLoading(false);
+        };
+        fetchInitialSettings();
+    }
+  }, [router]);
   
   const handleToggleDay = (day: keyof Workdays) => {
     setWorkdays(prev => ({ ...prev, [day]: !prev[day] }));
@@ -132,7 +139,7 @@ export default function SettingsPage() {
     return `${hours}h${String(minutes).padStart(2, '0')}m por dia (${selectedDays})`;
   }, [weeklyHours, workdays]);
   
-  if (!isClient) {
+  if (isLoading) {
       return <div className="dark bg-background flex min-h-screen items-center justify-center"><Clock className="animate-spin h-10 w-10 text-primary" /></div>;
   }
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   format,
   differenceInMilliseconds,
@@ -11,6 +12,7 @@ import {
   startOfToday,
   startOfDay,
   parse,
+  parseISO,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -76,8 +78,9 @@ const formatTime = (date: Date | string) => {
 };
 
 export default function RegistroFacilPage() {
+  const router = useRouter();
   const { toast } = useToast();
-  const [isClient, setIsClient] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [now, setNow] = useState(new Date());
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [editingEvent, setEditingEvent] = useState<{ id: string } | null>(null);
@@ -85,52 +88,62 @@ export default function RegistroFacilPage() {
   const [workdays, setWorkdays] = useState<Workdays>(defaultWorkdays);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [entries, settings] = await Promise.all([
-          getTimeEntries(),
-          getSettings(),
-        ]);
-        
-        setTimeEntries(entries);
-        
-        if (settings) {
-          const savedWorkdays = settings.workdays || defaultWorkdays;
-          setWorkdays(savedWorkdays);
-          const numberOfWorkDays = Object.values(savedWorkdays).filter(Boolean).length;
-          if (numberOfWorkDays > 0) {
-            setWorkHoursPerDay((settings.weeklyHours || 40) / numberOfWorkDays);
-          } else {
-            setWorkHoursPerDay(0);
+    const isLoggedIn = localStorage.getItem('isLoggedIn');
+    if (isLoggedIn !== 'true') {
+      router.replace('/login');
+    } else {
+      const fetchData = async () => {
+        try {
+          const [entries, settings] = await Promise.all([
+            getTimeEntries(),
+            getSettings(),
+          ]);
+          
+          setTimeEntries(entries);
+          
+          if (settings) {
+            const savedWorkdays = settings.workdays || defaultWorkdays;
+            setWorkdays(savedWorkdays);
+            const numberOfWorkDays = Object.values(savedWorkdays).filter(Boolean).length;
+            if (numberOfWorkDays > 0) {
+              setWorkHoursPerDay((settings.weeklyHours || 40) / numberOfWorkDays);
+            } else {
+              setWorkHoursPerDay(0);
+            }
           }
+        } catch (error) {
+          console.error("Failed to fetch data:", error);
+          toast({
+            title: "Erro de conexão",
+            description: "Não foi possível carregar os dados. Verifique a sua conexão e as configurações do Firebase.",
+            variant: "destructive",
+          });
+        } finally {
+          setIsLoading(false);
         }
-      } catch (error) {
-        console.error("Failed to fetch data:", error);
-        toast({
-          title: "Erro de conexão",
-          description: "Não foi possível carregar os dados. Verifique a sua conexão e as configurações do Firebase.",
-          variant: "destructive",
-        });
-      } finally {
-        setIsClient(true);
-      }
-    };
-    
-    fetchData();
-
+      };
+      
+      fetchData();
+    }
+  }, [router, toast]);
+  
+  useEffect(() => {
+    if (isLoading) return;
     const timer = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(timer);
-  }, [toast]);
+  }, [isLoading]);
   
   const { workdayStatus, currentEntry, todayEventsCount } = useMemo(() => {
     const todayEntries = timeEntries.filter(entry => isSameDay(new Date(entry.startTime), now));
     const activeEntry = todayEntries.find(entry => !entry.endTime);
     
-    const totalEvents = todayEntries.reduce((acc, entry) => {
-        acc += 1;
-        if (entry.endTime) acc += 1;
-        return acc;
-    }, 0);
+    let totalEvents = 0;
+    todayEntries.forEach(entry => {
+      totalEvents++; // For startTime
+      if (entry.endTime) {
+        totalEvents++; // For endTime
+      }
+    });
 
     let status: WorkdayStatus;
 
@@ -279,7 +292,8 @@ export default function RegistroFacilPage() {
   
   const generalHistory = useMemo(() => {
     const entriesByDay = timeEntries.reduce((acc, entry) => {
-      const dayKey = format(startOfDay(new Date(entry.startTime)), 'yyyy-MM-dd');
+      const entryDate = parseISO(entry.startTime);
+      const dayKey = format(startOfDay(entryDate), 'yyyy-MM-dd');
       if (!acc[dayKey]) {
         acc[dayKey] = [];
       }
@@ -347,6 +361,8 @@ export default function RegistroFacilPage() {
         originalDate.getDate(),
         hours,
         minutes,
+        originalDate.getSeconds(),
+        originalDate.getMilliseconds()
       );
 
       const updatedEntry = { ...entryToUpdate, [field]: updatedDate.toISOString() };
@@ -390,11 +406,12 @@ export default function RegistroFacilPage() {
       if (workdayStatus === 'WORKING') {
         if (nextActionIndex === 1) return { text: ['Registrar', 'Pausa'], icon: Coffee, disabled: false };
         if (nextActionIndex === 3) return { text: ['Registrar', 'Saída'], icon: LogOut, disabled: false };
-        if (nextActionIndex % 2 === 1) return { text: ['Registrar', 'Saída'], icon: LogOut, disabled: false};
+        return { text: ['Registrar', 'Saída'], icon: LogOut, disabled: false };
       }
       
       if (nextActionIndex === 0) return { text: ['Registrar', 'Entrada'], icon: LogIn, disabled: false };
       if (nextActionIndex === 2) return { text: ['Registrar', 'Retorno'], icon: Play, disabled: false };
+      if (todayEventsCount > 0 && todayEventsCount % 4 === 0) return { text: ['Registrar', 'Entrada'], icon: LogIn, disabled: false };
 
       if (todayEventsCount % 2 === 0) return { text: ['Registrar', 'Entrada'], icon: LogIn, disabled: false };
       return { text: ['Registrar', 'Saída'], icon: LogOut, disabled: false };
@@ -410,8 +427,13 @@ export default function RegistroFacilPage() {
         return 'Em pausa';
     }
   }, [workdayStatus, currentEntry, now, lastEvent]);
+  
+  const handleLogout = () => {
+    localStorage.removeItem('isLoggedIn');
+    router.push('/login');
+  };
 
-  if (!isClient) {
+  if (isLoading) {
     return <div className="dark bg-background flex min-h-screen items-center justify-center"><Clock className="animate-spin h-10 w-10 text-primary" /></div>;
   }
 
@@ -614,6 +636,9 @@ export default function RegistroFacilPage() {
             <Link href="/settings">
               <Settings className="mr-2 h-4 w-4" /> Configurações
             </Link>
+          </Button>
+          <Button variant="outline" onClick={handleLogout}>
+              <LogOut className="mr-2 h-4 w-4" /> Sair
           </Button>
         </div>
       </div>
