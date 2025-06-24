@@ -566,7 +566,11 @@ export default function RegistroFacilPage() {
           <div className="text-5xl font-mono tracking-widest animate-in fade-in-0 duration-500 delay-300">
               {formatDuration(elapsedTime)}
           </div>
-        ) : null}
+        ) : (
+          <div className="text-5xl font-mono tracking-widest text-muted-foreground animate-in fade-in-0 duration-500 delay-300">
+            {format(now, 'HH:mm:ss')}
+          </div>
+        )}
         
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-400">
           <Card className="w-full bg-card">
