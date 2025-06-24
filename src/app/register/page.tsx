@@ -16,23 +16,34 @@ import { Loader2 } from 'lucide-react';
 export default function RegisterPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+     if (username.includes('@')) {
+      toast({
+        title: 'Nome de Usuário Inválido',
+        description: 'O nome de usuário não pode conter o caractere "@".',
+        variant: 'destructive',
+      });
+      return;
+    }
     setIsLoading(true);
 
     try {
+      const email = `${username.toLowerCase()}@registrofacil.app`;
       await createUserWithEmailAndPassword(auth, email, password);
       router.push('/');
     } catch (error: any) {
       let errorMessage = 'Ocorreu um erro desconhecido.';
       if (error.code === 'auth/email-already-in-use') {
-        errorMessage = 'Este e-mail já está em uso. Tente fazer login.';
+        errorMessage = 'Este nome de usuário já está em uso. Por favor, escolha outro.';
       } else if (error.code === 'auth/weak-password') {
         errorMessage = 'A senha deve ter pelo menos 6 caracteres.';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'O nome de usuário contém caracteres inválidos. Use apenas letras, números, pontos, hífens ou underscores.';
       }
       toast({
         title: 'Erro de Cadastro',
@@ -57,13 +68,13 @@ export default function RegisterPage() {
         <CardContent>
           <form onSubmit={handleRegister} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">E-mail</Label>
+              <Label htmlFor="username">Nome de Usuário</Label>
               <Input
-                id="email"
-                type="email"
-                placeholder="seu@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="username"
+                type="text"
+                placeholder="Crie um nome de usuário"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 required
                 disabled={isLoading}
               />

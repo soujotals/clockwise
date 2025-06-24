@@ -16,7 +16,7 @@ import { Loader2 } from 'lucide-react';
 export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -25,12 +25,13 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
+      const email = `${username.toLowerCase()}@registrofacil.app`;
       await signInWithEmailAndPassword(auth, email, password);
       router.push('/');
     } catch (error) {
       toast({
         title: 'Erro de Login',
-        description: 'E-mail ou senha inválidos. Por favor, tente novamente.',
+        description: 'Nome de usuário ou senha inválidos. Por favor, tente novamente.',
         variant: 'destructive',
       });
     } finally {
@@ -51,13 +52,13 @@ export default function LoginPage() {
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">E-mail</Label>
+              <Label htmlFor="username">Nome de Usuário</Label>
               <Input
-                id="email"
-                type="email"
-                placeholder="seu@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="username"
+                type="text"
+                placeholder="Seu nome de usuário"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 required
                 disabled={isLoading}
               />
