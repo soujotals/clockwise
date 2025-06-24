@@ -564,7 +564,7 @@ export default function RegistroFacilPage() {
 
         <div className="flex h-28 flex-col items-center justify-center">
           {(workdayStatus === 'WORKING_BEFORE_BREAK' || workdayStatus === 'WORKING_AFTER_BREAK') && (
-            <div className="animate-in fade-in-0 delay-300 duration-500 text-5xl font-mono tracking-widest">
+            <div className="animate-in fade-in-0 delay-300 duration-500 text-4xl sm:text-5xl font-mono tracking-widest">
               {formatDuration(elapsedTime)}
             </div>
           )}
@@ -572,7 +572,7 @@ export default function RegistroFacilPage() {
             className={`animate-in fade-in-0 delay-300 duration-500 font-mono tracking-widest text-muted-foreground ${
               workdayStatus === 'WORKING_BEFORE_BREAK' || workdayStatus === 'WORKING_AFTER_BREAK'
                 ? 'text-lg mt-1'
-                : 'text-5xl'
+                : 'text-4xl sm:text-5xl'
             }`}
           >
             {format(now, 'HH:mm:ss')}

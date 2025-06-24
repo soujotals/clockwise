@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -249,7 +250,7 @@ export default function ReportsPage() {
                             <CardDescription>Seu saldo de horas acumulado até o momento.</CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <p className={`text-6xl font-bold ${timeBank.startsWith('+') || timeBank === "00h00m" ? 'text-primary' : 'text-destructive'}`}>
+                            <p className={`text-4xl sm:text-6xl font-bold ${timeBank.startsWith('+') || timeBank === "00h00m" ? 'text-primary' : 'text-destructive'}`}>
                                 {timeBank}
                             </p>
                         </CardContent>
