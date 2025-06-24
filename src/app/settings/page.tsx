@@ -20,7 +20,6 @@ export default function SettingsPage() {
   const { toast } = useToast();
   const [weeklyHours, setWeeklyHours] = useState<string | number>(40);
   const [initialWeeklyHours, setInitialWeeklyHours] = useState<string | number>(40);
-  const [isCustomDistribution, setIsCustomDistribution] = useState(false);
   const [is24hFormat, setIs24hFormat] = useState(true);
   const [enableReminders, setEnableReminders] = useState(true);
 
@@ -126,17 +125,7 @@ export default function SettingsPage() {
                  <p className="text-xs text-muted-foreground mt-1">Exemplo: 40h, 44h, 30h - conforme seu contrato de trabalho</p>
             </div>
           
-            <div className="p-4 rounded-lg border border-border bg-card">
-                <div className="flex justify-between items-center">
-                    <div>
-                        <Label htmlFor="custom-dist" className="font-bold cursor-pointer">Distribuição personalizada</Label>
-                        <p className="text-sm text-muted-foreground">Defina horas específicas para cada dia da semana</p>
-                    </div>
-                    <Switch id="custom-dist" checked={isCustomDistribution} onCheckedChange={setIsCustomDistribution} />
-                </div>
-            </div>
-
-            <div className={`p-4 rounded-lg border transition-colors ${!isCustomDistribution ? 'border-primary bg-primary/10' : 'border-border bg-card text-muted-foreground'}`}>
+            <div className="p-4 rounded-lg border border-primary bg-primary/10">
                 <div className="flex justify-between items-center">
                     <div>
                         <p className="font-semibold">Distribuição automática</p>
