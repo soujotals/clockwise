@@ -272,14 +272,22 @@ export default function ReportsPage() {
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <div className="flex items-center gap-2 py-4">
-                    <select
-                        value={adjustmentSign}
-                        onChange={(e) => setAdjustmentSign(e.target.value)}
-                        className="h-10 rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                    >
-                        <option value="+">+</option>
-                        <option value="-">-</option>
-                    </select>
+                    <div className="flex">
+                        <Button
+                            variant={adjustmentSign === '+' ? 'default' : 'outline'}
+                            onClick={() => setAdjustmentSign('+')}
+                            className="rounded-r-none"
+                        >
+                            +
+                        </Button>
+                        <Button
+                            variant={adjustmentSign === '-' ? 'destructive' : 'outline'}
+                            onClick={() => setAdjustmentSign('-')}
+                            className="rounded-l-none border-l-0"
+                        >
+                            -
+                        </Button>
+                    </div>
                     <Input
                         id="adjustment"
                         type="time"
