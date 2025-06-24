@@ -11,6 +11,7 @@ import {
   isBefore,
   startOfToday,
   startOfDay,
+  parse,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -328,7 +329,7 @@ export default function RegistroFacilPage() {
       };
     });
 
-    return historyWithEvents.sort((a, b) => new Date(b.day).getTime() - new Date(a.day).getTime());
+    return historyWithEvents.sort((a, b) => parse(b.day, 'yyyy-MM-dd', new Date()).getTime() - parse(a.day, 'yyyy-MM-dd', new Date()).getTime());
   }, [timeEntries]);
 
   const handleUpdateTime = (entryId: string, field: 'startTime' | 'endTime', newTimeValue: string) => {
@@ -337,8 +338,16 @@ export default function RegistroFacilPage() {
         if (entry.id === entryId) {
           const originalDate = new Date(entry[field] || entry.startTime);
           const [hours, minutes] = newTimeValue.split(':').map(Number);
-          const updatedDate = new Date(originalDate);
-          updatedDate.setHours(hours, minutes, 0, 0); 
+          
+          const updatedDate = new Date(
+            originalDate.getFullYear(),
+            originalDate.getMonth(),
+            originalDate.getDate(),
+            hours,
+            minutes,
+            0, // seconds
+            0 // milliseconds
+          );
 
           return { ...entry, [field]: updatedDate.toISOString() };
         }
@@ -458,7 +467,7 @@ export default function RegistroFacilPage() {
                         {generalHistory.map(({ day, events }) => (
                             <AccordionItem value={day} key={day}>
                                 <AccordionTrigger>
-                                    {format(new Date(day), "PPP", { locale: ptBR })} - {format(new Date(day), "eeee", { locale: ptBR })}
+                                    {format(parse(day, 'yyyy-MM-dd', new Date()), "PPP", { locale: ptBR })} - {format(parse(day, 'yyyy-MM-dd', new Date()), "eeee", { locale: ptBR })}
                                 </AccordionTrigger>
                                 <AccordionContent>
                                     <Table>
