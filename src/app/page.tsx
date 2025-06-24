@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
@@ -23,7 +24,6 @@ import {
   Settings,
   LogIn,
   LogOut,
-  Coffee,
   Play,
   Trash2,
   Pencil,
@@ -148,7 +148,7 @@ export default function RegistroFacilPage() {
     return () => clearInterval(timer);
   }, [isLoading]);
   
-  const { workdayStatus, currentEntry, todayEventsCount } = useMemo(() => {
+  const { workdayStatus, currentEntry } = useMemo(() => {
     const todayEntries = timeEntries.filter(entry => isSameDay(new Date(entry.startTime), now));
     const activeEntry = todayEntries.find(entry => !entry.endTime);
     
@@ -172,7 +172,7 @@ export default function RegistroFacilPage() {
       }
     }
     
-    return { workdayStatus: status, currentEntry: activeEntry || null, todayEventsCount: totalEvents };
+    return { workdayStatus: status, currentEntry: activeEntry || null };
   }, [timeEntries, now]);
 
   const handleClockAction = useCallback(async () => {
@@ -285,9 +285,9 @@ export default function RegistroFacilPage() {
     if (todayEntries.length === 0) return { label: 'Nenhum registro hoje', time: null };
 
     const allEvents = todayEntries.flatMap(e => {
-        const events = [{ time: e.startTime, isStart: true }];
+        const events = [{ time: e.startTime, isStart: true, type: 'Entrada' }];
         if (e.endTime) {
-            events.push({ time: e.endTime, isStart: false });
+            events.push({ time: e.endTime, isStart: false, type: 'Saída' });
         }
         return events;
     }).sort((a,b) => new Date(b.time).getTime() - new Date(a.time).getTime());
@@ -295,17 +295,7 @@ export default function RegistroFacilPage() {
     const last = allEvents[0];
     if (!last) return { label: 'Nenhum registro hoje', time: null };
 
-    const cycleStep = (allEvents.length -1) % 4;
-    
-    if (last.isStart) {
-      if (cycleStep === 0) return { label: 'Entrada às', time: last.time };
-      if (cycleStep === 2) return { label: 'Retorno às', time: last.time };
-    } else {
-      if (cycleStep === 1) return { label: 'Pausa às', time: last.time };
-      if (cycleStep === 3) return { label: 'Saída às', time: last.time };
-    }
-    const label = (allEvents.length % 2 !== 0) ? `Entrada ${Math.ceil(allEvents.length / 2)} às` : `Saída ${Math.ceil(allEvents.length / 2)} às`
-    return { label, time: last.time };
+    return { label: `${last.type} às`, time: last.time };
   }, [timeEntries, now]);
   
   const generalHistory = useMemo(() => {
@@ -319,16 +309,19 @@ export default function RegistroFacilPage() {
       return acc;
     }, {} as Record<string, TimeEntry[]>);
 
-    const historyWithEvents = Object.entries(entriesByDay).map(([day, entries]) => {
+    return Object.entries(entriesByDay).map(([day, entries]) => {
       const sortedEntries = [...entries].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
       
-      const dayEvents = sortedEntries.flatMap((entry) => {
+      const dayEvents = sortedEntries.flatMap((entry, entryIndex) => {
           const events = [];
+          const entryNumber = sortedEntries.length > 1 ? ` ${entryIndex + 1}` : '';
+          
           events.push({
               id: `${entry.id}-start`,
               time: entry.startTime,
               entryId: entry.id,
               fieldToEdit: 'startTime' as const,
+              label: `Entrada${entryNumber}`
           });
 
           if (entry.endTime) {
@@ -337,6 +330,7 @@ export default function RegistroFacilPage() {
                   time: entry.endTime,
                   entryId: entry.id,
                   fieldToEdit: 'endTime' as const,
+                  label: `Saída${entryNumber}`
               });
           }
           return events;
@@ -344,23 +338,9 @@ export default function RegistroFacilPage() {
 
       return {
         day,
-        events: dayEvents.map((event, index) => {
-          const labels = ['Entrada', 'Pausa', 'Retorno', 'Saída'];
-          let label;
-          const cycleNumber = Math.floor(index / 4);
-          const labelIndex = index % 4;
-          
-          label = labels[labelIndex]
-          if (cycleNumber > 0) {
-            label = `${label} ${cycleNumber + 1}`
-          }
-
-          return {...event, label };
-        })
+        events: dayEvents,
       };
-    });
-
-    return historyWithEvents.sort((a, b) => parse(b.day, 'yyyy-MM-dd', new Date()).getTime() - parse(a.day, 'yyyy-MM-dd', new Date()).getTime());
+    }).sort((a, b) => parse(b.day, 'yyyy-MM-dd', new Date()).getTime() - parse(a.day, 'yyyy-MM-dd', new Date()).getTime());
   }, [timeEntries]);
 
   const handleUpdateTime = async (entryId: string, field: 'startTime' | 'endTime', newTimeValue: string) => {
@@ -421,29 +401,18 @@ export default function RegistroFacilPage() {
   };
   
   const buttonConfig = useMemo(() => {
-      const nextActionIndex = todayEventsCount % 4;
-
-      if (workdayStatus === 'WORKING') {
-        if (nextActionIndex === 1) return { text: ['Registrar', 'Pausa'], icon: Coffee, disabled: false };
-        if (nextActionIndex === 3) return { text: ['Registrar', 'Saída'], icon: LogOut, disabled: false };
-        return { text: ['Registrar', 'Saída'], icon: LogOut, disabled: false };
-      }
-      
-      if (nextActionIndex === 0) return { text: ['Registrar', 'Entrada'], icon: LogIn, disabled: false };
-      if (nextActionIndex === 2) return { text: ['Registrar', 'Retorno'], icon: Play, disabled: false };
-      if (todayEventsCount > 0 && todayEventsCount % 4 === 0) return { text: ['Registrar', 'Entrada'], icon: LogIn, disabled: false };
-
-      if (todayEventsCount % 2 === 0) return { text: ['Registrar', 'Entrada'], icon: LogIn, disabled: false };
+    if (workdayStatus === 'WORKING') {
       return { text: ['Registrar', 'Saída'], icon: LogOut, disabled: false };
-      
-  }, [workdayStatus, todayEventsCount]);
+    }
+    return { text: ['Registrar', 'Entrada'], icon: LogIn, disabled: false };
+  }, [workdayStatus]);
 
   const statusLabel = useMemo(() => {
     switch (workdayStatus) {
       case 'NOT_STARTED': return 'Fora do expediente';
       case 'WORKING': return `Em expediente desde ${formatTime(currentEntry?.startTime || now)}`;
       case 'ON_BREAK': 
-        if(lastEvent.time) return `${lastEvent.label.replace(' às', '')} desde ${formatTime(lastEvent.time)}`;
+        if(lastEvent.time) return `Pausa iniciada às ${formatTime(lastEvent.time)}`;
         return 'Em pausa';
     }
   }, [workdayStatus, currentEntry, now, lastEvent]);
