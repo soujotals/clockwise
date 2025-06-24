@@ -2,35 +2,20 @@
 
 import Link from 'next/link';
 import { useState, useEffect, useMemo } from 'react';
-import { ArrowLeft, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Clock, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import {
   format,
   differenceInMilliseconds,
   isSameDay,
-  startOfWeek,
   eachDayOfInterval,
   isBefore,
   startOfToday,
   startOfDay,
 } from 'date-fns';
-
-type TimeEntry = {
-  id: string;
-  startTime: string; // ISO string
-  endTime?: string; // ISO string
-};
-
-type Workdays = {
-  sun: boolean;
-  mon: boolean;
-  tue: boolean;
-  wed: boolean;
-  thu: boolean;
-  fri: boolean;
-  sat: boolean;
-};
+import { TimeEntry, getTimeEntries } from '@/services/time-entry.service';
+import { Workdays, getSettings } from '@/services/settings.service';
 
 const defaultWorkdays: Workdays = {
   sun: false,
@@ -58,29 +43,32 @@ const formatDuration = (milliseconds: number) => {
 
 
 export default function ReportsPage() {
+    const [isClient, setIsClient] = useState(false);
     const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
     const [workHoursPerDay, setWorkHoursPerDay] = useState(8);
     const [workdays, setWorkdays] = useState<Workdays>(defaultWorkdays);
     const [now, setNow] = useState(new Date());
 
     useEffect(() => {
-        const storedEntries = localStorage.getItem('timeEntries');
-        if (storedEntries) {
-            setTimeEntries(JSON.parse(storedEntries));
-        }
-        
-        const storedSettings = localStorage.getItem('appSettings');
-        if (storedSettings) {
-            const settings = JSON.parse(storedSettings);
-            const savedWorkdays = settings.workdays || defaultWorkdays;
-            setWorkdays(savedWorkdays);
-            const numberOfWorkDays = Object.values(savedWorkdays).filter(Boolean).length;
-            if (numberOfWorkDays > 0) {
-                setWorkHoursPerDay((settings.weeklyHours || 40) / numberOfWorkDays);
-            } else {
-                setWorkHoursPerDay(0);
+        const fetchData = async () => {
+            const [entries, settings] = await Promise.all([
+                getTimeEntries(),
+                getSettings()
+            ]);
+            setTimeEntries(entries);
+            if (settings) {
+                const savedWorkdays = settings.workdays || defaultWorkdays;
+                setWorkdays(savedWorkdays);
+                const numberOfWorkDays = Object.values(savedWorkdays).filter(Boolean).length;
+                if (numberOfWorkDays > 0) {
+                    setWorkHoursPerDay((settings.weeklyHours || 40) / numberOfWorkDays);
+                } else {
+                    setWorkHoursPerDay(0);
+                }
             }
-        }
+            setIsClient(true);
+        };
+        fetchData();
         
         const timer = setInterval(() => setNow(new Date()), 1000);
         return () => clearInterval(timer);
@@ -93,7 +81,6 @@ export default function ReportsPage() {
             return formatDuration(0);
         }
 
-        // Today's worked hours calculation
         const currentEntry = timeEntries
             .filter(entry => isSameDay(new Date(entry.startTime), now))
             .find(entry => !entry.endTime);
@@ -108,7 +95,6 @@ export default function ReportsPage() {
             dailyHours += differenceInMilliseconds(now, new Date(currentEntry.startTime));
         }
 
-        // Cumulative calculation
         const firstEntryDate = timeEntries.reduce((earliest, entry) => {
             const entryDate = new Date(entry.startTime);
             return entryDate < earliest ? entryDate : earliest;
@@ -149,7 +135,10 @@ export default function ReportsPage() {
         
         return formatDuration(bankMs);
     }, [now, timeEntries, workHoursPerDay, workdays]);
-
+    
+    if (!isClient) {
+        return <div className="dark bg-background flex min-h-screen items-center justify-center"><Clock className="animate-spin h-10 w-10 text-primary" /></div>;
+    }
 
     return (
         <div className="bg-background text-foreground min-h-screen flex flex-col font-sans">

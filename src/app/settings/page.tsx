@@ -16,16 +16,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from '@/components/ui/card';
-
-type Workdays = {
-  sun: boolean;
-  mon: boolean;
-  tue: boolean;
-  wed: boolean;
-  thu: boolean;
-  fri: boolean;
-  sat: boolean;
-};
+import { Workdays, AppSettings, getSettings, saveSettings } from '@/services/settings.service';
 
 const defaultWorkdays: Workdays = {
   sun: false,
@@ -59,6 +50,7 @@ const dayFullNames: { [key in keyof Workdays]: string } = {
 
 export default function SettingsPage() {
   const { toast } = useToast();
+  const [isClient, setIsClient] = useState(false);
   const [weeklyHours, setWeeklyHours] = useState<string | number>(40);
   const [initialWeeklyHours, setInitialWeeklyHours] = useState<string | number>(40);
   const [workdays, setWorkdays] = useState<Workdays>(defaultWorkdays);
@@ -67,39 +59,47 @@ export default function SettingsPage() {
   const [enableReminders, setEnableReminders] = useState(true);
 
   useEffect(() => {
-    const savedSettingsRaw = localStorage.getItem('appSettings');
-    if (savedSettingsRaw) {
-      const settings = JSON.parse(savedSettingsRaw);
-      const hours = settings.weeklyHours || 40;
-      setWeeklyHours(hours);
-      setInitialWeeklyHours(hours);
-      const savedWorkdays = settings.workdays || defaultWorkdays;
-      setWorkdays(savedWorkdays);
-      setInitialWorkdays(savedWorkdays);
-    }
+    const fetchInitialSettings = async () => {
+      const settings = await getSettings();
+      if (settings) {
+        const hours = settings.weeklyHours || 40;
+        setWeeklyHours(hours);
+        setInitialWeeklyHours(hours);
+        const savedWorkdays = settings.workdays || defaultWorkdays;
+        setWorkdays(savedWorkdays);
+        setInitialWorkdays(savedWorkdays);
+      }
+      setIsClient(true);
+    };
+    fetchInitialSettings();
   }, []);
   
   const handleToggleDay = (day: keyof Workdays) => {
     setWorkdays(prev => ({ ...prev, [day]: !prev[day] }));
   };
 
-  const handleSave = () => {
-    const savedSettingsRaw = localStorage.getItem('appSettings');
-    const savedSettings = savedSettingsRaw ? JSON.parse(savedSettingsRaw) : {};
-    
-    const newSettings = {
-      ...savedSettings,
+  const handleSave = async () => {
+    const newSettings: AppSettings = {
       weeklyHours: Number(weeklyHours),
       workdays,
     };
 
-    localStorage.setItem('appSettings', JSON.stringify(newSettings));
-    setInitialWeeklyHours(Number(weeklyHours));
-    setInitialWorkdays(workdays);
-    toast({
-      title: "Configurações Salvas",
-      description: "Suas preferências foram atualizadas com sucesso.",
-    });
+    try {
+      await saveSettings(newSettings);
+      setInitialWeeklyHours(Number(weeklyHours));
+      setInitialWorkdays(workdays);
+      toast({
+        title: "Configurações Salvas",
+        description: "Suas preferências foram atualizadas com sucesso.",
+      });
+    } catch (error) {
+      console.error("Failed to save settings:", error);
+      toast({
+        title: "Erro ao Salvar",
+        description: "Não foi possível salvar as configurações. Tente novamente.",
+        variant: "destructive",
+      });
+    }
   };
 
   const weeklyHoursChanged = Number(weeklyHours) !== Number(initialWeeklyHours);
@@ -131,6 +131,10 @@ export default function SettingsPage() {
 
     return `${hours}h${String(minutes).padStart(2, '0')}m por dia (${selectedDays})`;
   }, [weeklyHours, workdays]);
+  
+  if (!isClient) {
+      return <div className="dark bg-background flex min-h-screen items-center justify-center"><Clock className="animate-spin h-10 w-10 text-primary" /></div>;
+  }
 
   return (
     <div className="bg-background text-foreground min-h-screen flex flex-col font-sans">

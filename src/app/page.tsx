@@ -11,7 +11,6 @@ import {
   startOfToday,
   startOfDay,
   parse,
-  subDays,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -26,7 +25,7 @@ import {
   Trash2,
   Pencil,
 } from "lucide-react";
-
+import { useToast } from "@/hooks/use-toast";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -43,24 +42,11 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { TimeEntry, getTimeEntries, addTimeEntry, updateTimeEntry, deleteTimeEntry } from "@/services/time-entry.service";
+import { Workdays, getSettings } from "@/services/settings.service";
 
-type TimeEntry = {
-  id: string;
-  startTime: string; // ISO string
-  endTime?: string; // ISO string
-};
 
 type WorkdayStatus = 'NOT_STARTED' | 'WORKING' | 'ON_BREAK';
-
-type Workdays = {
-  sun: boolean;
-  mon: boolean;
-  tue: boolean;
-  wed: boolean;
-  thu: boolean;
-  fri: boolean;
-  sat: boolean;
-};
 
 const defaultWorkdays: Workdays = {
   sun: false,
@@ -90,6 +76,7 @@ const formatTime = (date: Date | string) => {
 };
 
 export default function RegistroFacilPage() {
+  const { toast } = useToast();
   const [isClient, setIsClient] = useState(false);
   const [now, setNow] = useState(new Date());
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
@@ -98,59 +85,42 @@ export default function RegistroFacilPage() {
   const [workdays, setWorkdays] = useState<Workdays>(defaultWorkdays);
 
   useEffect(() => {
-    setIsClient(true);
-    
-    const storedSettings = localStorage.getItem('appSettings');
-    if (storedSettings) {
-        const settings = JSON.parse(storedSettings);
-        const savedWorkdays = settings.workdays || defaultWorkdays;
-        setWorkdays(savedWorkdays);
-        const numberOfWorkDays = Object.values(savedWorkdays).filter(Boolean).length;
-        if (numberOfWorkDays > 0) {
+    const fetchData = async () => {
+      try {
+        const [entries, settings] = await Promise.all([
+          getTimeEntries(),
+          getSettings(),
+        ]);
+        
+        setTimeEntries(entries);
+        
+        if (settings) {
+          const savedWorkdays = settings.workdays || defaultWorkdays;
+          setWorkdays(savedWorkdays);
+          const numberOfWorkDays = Object.values(savedWorkdays).filter(Boolean).length;
+          if (numberOfWorkDays > 0) {
             setWorkHoursPerDay((settings.weeklyHours || 40) / numberOfWorkDays);
-        } else {
+          } else {
             setWorkHoursPerDay(0);
-        }
-    }
-
-    const storedEntries = localStorage.getItem("timeEntries");
-    if (storedEntries) {
-      const parsedEntries: TimeEntry[] = JSON.parse(storedEntries);
-      const cleanedEntries = parsedEntries.map(entry => {
-        const startDate = new Date(entry.startTime);
-        if (isNaN(startDate.getTime())) {
-          return null; // Invalid entry
-        }
-        
-        const cleanedEntry: TimeEntry = {
-          id: entry.id,
-          startTime: startDate.toISOString()
-        };
-        
-        if (entry.endTime) {
-          const endDate = new Date(entry.endTime);
-          if (!isNaN(endDate.getTime())) {
-            cleanedEntry.endTime = endDate.toISOString();
           }
         }
-        
-        return cleanedEntry;
-      }).filter((e): e is TimeEntry => e !== null);
+      } catch (error) {
+        console.error("Failed to fetch data:", error);
+        toast({
+          title: "Erro de conexão",
+          description: "Não foi possível carregar os dados. Verifique a sua conexão e as configurações do Firebase.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsClient(true);
+      }
+    };
+    
+    fetchData();
 
-      setTimeEntries(cleanedEntries);
-    }
-  }, []);
-
-  useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    if (isClient) {
-      localStorage.setItem("timeEntries", JSON.stringify(timeEntries));
-    }
-  }, [timeEntries, isClient]);
+  }, [toast]);
   
   const { workdayStatus, currentEntry, todayEventsCount } = useMemo(() => {
     const todayEntries = timeEntries.filter(entry => isSameDay(new Date(entry.startTime), now));
@@ -177,21 +147,32 @@ export default function RegistroFacilPage() {
     return { workdayStatus: status, currentEntry: activeEntry || null, todayEventsCount: totalEvents };
   }, [timeEntries, now]);
 
-  const handleClockAction = useCallback(() => {
+  const handleClockAction = useCallback(async () => {
     const actionTime = new Date().toISOString();
     
     const activeEntry = timeEntries
       .filter(entry => isSameDay(new Date(entry.startTime), new Date()))
       .find(entry => !entry.endTime);
 
-    if (activeEntry) {
-      const updatedEntry = { ...activeEntry, endTime: actionTime };
-      setTimeEntries(prev => prev.map(e => (e.id === activeEntry.id ? updatedEntry : e)));
-    } else {
-      const newEntry: TimeEntry = { id: crypto.randomUUID(), startTime: actionTime };
-      setTimeEntries(prev => [...prev, newEntry]);
+    try {
+      if (activeEntry) {
+        const updatedEntry = { ...activeEntry, endTime: actionTime };
+        await updateTimeEntry(updatedEntry);
+        setTimeEntries(prev => prev.map(e => (e.id === activeEntry.id ? updatedEntry : e)));
+      } else {
+        const newEntryData = { startTime: actionTime };
+        const savedEntry = await addTimeEntry(newEntryData);
+        setTimeEntries(prev => [...prev, savedEntry]);
+      }
+    } catch(error) {
+      console.error("Failed to save time entry:", error);
+      toast({
+        title: "Erro ao Salvar",
+        description: "Não foi possível registrar o ponto. Tente novamente.",
+        variant: "destructive",
+      });
     }
-  }, [timeEntries]);
+  }, [timeEntries, toast]);
 
   const elapsedTime = useMemo(() => {
     if (currentEntry) {
@@ -350,34 +331,57 @@ export default function RegistroFacilPage() {
     return historyWithEvents.sort((a, b) => parse(b.day, 'yyyy-MM-dd', new Date()).getTime() - parse(a.day, 'yyyy-MM-dd', new Date()).getTime());
   }, [timeEntries]);
 
-  const handleUpdateTime = (entryId: string, field: 'startTime' | 'endTime', newTimeValue: string) => {
-    setTimeEntries(prevEntries => {
-      const newEntries = prevEntries.map(entry => {
-        if (entry.id === entryId) {
-          const originalDateString = entry[field] || entry.startTime;
-          const originalDate = new Date(originalDateString);
+  const handleUpdateTime = async (entryId: string, field: 'startTime' | 'endTime', newTimeValue: string) => {
+    const entryToUpdate = timeEntries.find(e => e.id === entryId);
+    if (!entryToUpdate) return;
 
-          const [hours, minutes] = newTimeValue.split(':').map(Number);
-          
-          const updatedDate = new Date(
-            originalDate.getFullYear(),
-            originalDate.getMonth(),
-            originalDate.getDate(),
-            hours,
-            minutes,
-          );
+    try {
+      const originalDateString = entryToUpdate[field] || entryToUpdate.startTime;
+      const originalDate = new Date(originalDateString);
 
-          return { ...entry, [field]: updatedDate.toISOString() };
-        }
-        return entry;
+      const [hours, minutes] = newTimeValue.split(':').map(Number);
+      
+      const updatedDate = new Date(
+        originalDate.getFullYear(),
+        originalDate.getMonth(),
+        originalDate.getDate(),
+        hours,
+        minutes,
+      );
+
+      const updatedEntry = { ...entryToUpdate, [field]: updatedDate.toISOString() };
+
+      await updateTimeEntry(updatedEntry);
+
+      setTimeEntries(prevEntries => prevEntries.map(e => (e.id === entryId ? updatedEntry : e)));
+    } catch (error) {
+      console.error("Failed to update time entry:", error);
+      toast({
+        title: "Erro ao Atualizar",
+        description: "Não foi possível salvar a alteração. Tente novamente.",
+        variant: "destructive",
       });
-      return newEntries;
-    });
-    setEditingEvent(null);
+    } finally {
+      setEditingEvent(null);
+    }
   };
   
-  const handleDeleteEntry = (entryId: string) => {
-    setTimeEntries(prevEntries => prevEntries.filter(entry => entry.id !== entryId));
+  const handleDeleteEntry = async (entryId: string) => {
+    try {
+      await deleteTimeEntry(entryId);
+      setTimeEntries(prevEntries => prevEntries.filter(entry => entry.id !== entryId));
+      toast({
+        title: "Registro Excluído",
+        description: "O registro de ponto foi removido com sucesso.",
+      });
+    } catch(error) {
+      console.error("Failed to delete time entry:", error);
+      toast({
+        title: "Erro ao Excluir",
+        description: "Não foi possível remover o registro. Tente novamente.",
+        variant: "destructive",
+      });
+    }
   };
   
   const buttonConfig = useMemo(() => {
@@ -386,14 +390,12 @@ export default function RegistroFacilPage() {
       if (workdayStatus === 'WORKING') {
         if (nextActionIndex === 1) return { text: ['Registrar', 'Pausa'], icon: Coffee, disabled: false };
         if (nextActionIndex === 3) return { text: ['Registrar', 'Saída'], icon: LogOut, disabled: false };
-        // Fallback for subsequent cycles (e.g., 5th event is a pause)
         if (nextActionIndex % 2 === 1) return { text: ['Registrar', 'Saída'], icon: LogOut, disabled: false};
       }
       
       if (nextActionIndex === 0) return { text: ['Registrar', 'Entrada'], icon: LogIn, disabled: false };
       if (nextActionIndex === 2) return { text: ['Registrar', 'Retorno'], icon: Play, disabled: false };
 
-      // Fallback for subsequent cycles
       if (todayEventsCount % 2 === 0) return { text: ['Registrar', 'Entrada'], icon: LogIn, disabled: false };
       return { text: ['Registrar', 'Saída'], icon: LogOut, disabled: false };
       
@@ -410,7 +412,7 @@ export default function RegistroFacilPage() {
   }, [workdayStatus, currentEntry, now, lastEvent]);
 
   if (!isClient) {
-    return <div className="dark bg-background flex min-h-screen items-center justify-center" />;
+    return <div className="dark bg-background flex min-h-screen items-center justify-center"><Clock className="animate-spin h-10 w-10 text-primary" /></div>;
   }
 
   return (
