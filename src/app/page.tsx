@@ -11,6 +11,7 @@ import {
   isWeekend,
   isBefore,
   startOfToday,
+  startOfDay,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -39,6 +40,8 @@ import {
 } from "@/components/ui/alert-dialog"
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Input } from "@/components/ui/input";
 
 
 type TimeEntry = {
@@ -72,18 +75,17 @@ export default function RegistroFacilPage() {
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [currentEntry, setCurrentEntry] = useState<TimeEntry | null>(null);
   const [workdayStatus, setWorkdayStatus] = useState<WorkdayStatus>('NOT_STARTED');
+  const [editingEvent, setEditingEvent] = useState<{ id: string } | null>(null);
 
   useEffect(() => {
     setIsClient(true);
     const storedEntries = localStorage.getItem("timeEntries");
     if (storedEntries) {
       const parsedEntries: TimeEntry[] = JSON.parse(storedEntries);
+      setTimeEntries(parsedEntries);
       
       const today = new Date();
       const todayEntries = parsedEntries.filter(e => isSameDay(new Date(e.startTime), today));
-      
-      // Clear entries from previous days for simplicity
-      setTimeEntries(todayEntries);
       
       const todayActiveEntry = todayEntries.find(e => !e.endTime);
       const todayCompletedEntries = todayEntries.filter(e => e.endTime);
@@ -187,7 +189,8 @@ export default function RegistroFacilPage() {
     const today = startOfToday();
     const daysInWeekSoFar = eachDayOfInterval({ start: weekStart, end: today });
   
-    const storedEntries: TimeEntry[] = isClient ? JSON.parse(localStorage.getItem("timeEntries") || "[]") : [];
+    // Use state directly since it now holds all entries
+    const storedEntries: TimeEntry[] = timeEntries;
   
     let workedMs = 0;
     let targetMs = 0;
@@ -210,38 +213,89 @@ export default function RegistroFacilPage() {
     const bankMs = totalWorkedMs - targetMs;
     const sign = bankMs >= 0 ? "+" : "-";
     return `${sign}${formatDuration(Math.abs(bankMs))}`;
-  }, [dailyHours, now, isClient]);
+  }, [dailyHours, now, timeEntries]);
 
   const lastEvent = useMemo(() => {
-    if (timeEntries.length === 0) return { label: 'Nenhum registro hoje', time: null };
+    const todayEntries = timeEntries.filter(e => isSameDay(new Date(e.startTime), now));
+    if (todayEntries.length === 0) return { label: 'Nenhum registro hoje', time: null };
 
-    const lastEntry = timeEntries[timeEntries.length - 1];
+    const todayEntriesSorted = [...todayEntries].sort((a,b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+    const lastEntry = todayEntriesSorted[todayEntriesSorted.length - 1];
+
+    if (!lastEntry) return { label: 'Nenhum registro hoje', time: null };
 
     if (!lastEntry.endTime) { // Active entry
-        if (timeEntries.length === 1) return { label: 'Entrada às', time: lastEntry.startTime };
+        if (todayEntriesSorted.length === 1) return { label: 'Entrada às', time: lastEntry.startTime };
         return { label: 'Retorno às', time: lastEntry.startTime };
     } else { // Completed entry
-        if (timeEntries.length === 1) return { label: 'Pausa às', time: lastEntry.endTime };
+        if (todayEntriesSorted.length === 1) return { label: 'Pausa às', time: lastEntry.endTime };
         return { label: 'Saída às', time: lastEntry.endTime };
     }
-  }, [timeEntries]);
+  }, [timeEntries, now]);
   
-  const historyEvents = useMemo(() => {
-    const events: { label: string; time: string }[] = [];
-    const todayEntriesSorted = [...timeEntries].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+  const generalHistory = useMemo(() => {
+    const entriesByDay = timeEntries.reduce((acc, entry) => {
+      const dayKey = format(startOfDay(new Date(entry.startTime)), 'yyyy-MM-dd');
+      if (!acc[dayKey]) {
+        acc[dayKey] = [];
+      }
+      acc[dayKey].push(entry);
+      return acc;
+    }, {} as Record<string, TimeEntry[]>);
 
-    todayEntriesSorted.forEach((entry, index) => {
-        if (index === 0) {
-            events.push({ label: 'Entrada', time: entry.startTime });
-            if (entry.endTime) events.push({ label: 'Pausa', time: entry.endTime });
-        } else if (index === 1) {
-            events.push({ label: 'Retorno', time: entry.startTime });
-            if (entry.endTime) events.push({ label: 'Saída', time: entry.endTime });
+    const historyWithEvents = Object.entries(entriesByDay).map(([day, entries]) => {
+      const sortedEntries = [...entries].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+      
+      const dayEvents = sortedEntries.flatMap((entry, index) => {
+        const events = [];
+        events.push({
+          id: `${entry.id}-start`,
+          label: index === 0 ? 'Entrada' : 'Retorno',
+          time: entry.startTime,
+          entryId: entry.id,
+          fieldToEdit: 'startTime' as const
+        });
+
+        if (entry.endTime) {
+          events.push({
+            id: `${entry.id}-end`,
+            label: index === 0 ? 'Pausa' : 'Saída',
+            time: entry.endTime,
+            entryId: entry.id,
+            fieldToEdit: 'endTime' as const
+          });
         }
+        return events;
+      });
+
+      dayEvents.sort((a,b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+
+      return {
+        day,
+        events: dayEvents,
+      };
     });
 
-    return events.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+    return historyWithEvents.sort((a, b) => new Date(b.day).getTime() - new Date(a.day).getTime());
   }, [timeEntries]);
+
+  const handleUpdateTime = (entryId: string, field: 'startTime' | 'endTime', newTimeValue: string) => {
+    setTimeEntries(prevEntries => {
+      const newEntries = prevEntries.map(entry => {
+        if (entry.id === entryId) {
+          const originalDate = new Date(entry[field] || entry.startTime);
+          const [hours, minutes] = newTimeValue.split(':').map(Number);
+          const updatedDate = new Date(originalDate);
+          updatedDate.setHours(hours, minutes, 0, 0); 
+
+          return { ...entry, [field]: updatedDate.toISOString() };
+        }
+        return entry;
+      });
+      return newEntries;
+    });
+    setEditingEvent(null);
+  };
   
   const buttonConfig = useMemo(() => {
     switch (workdayStatus) {
@@ -339,37 +393,62 @@ export default function RegistroFacilPage() {
               <BarChart className="mr-2 h-4 w-4" /> Histórico
             </Button>
           </AlertDialogTrigger>
-          <AlertDialogContent>
+          <AlertDialogContent className="max-w-2xl">
             <AlertDialogHeader>
-              <AlertDialogTitle>Histórico do Dia</AlertDialogTitle>
+              <AlertDialogTitle>Histórico Geral</AlertDialogTitle>
               <AlertDialogDescription>
-                Seus registros de ponto para hoje, {format(now, "dd/MM/yyyy")}.
+                Seus registros de ponto. Clique em um horário para editar.
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <ScrollArea className="h-72">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Evento</TableHead>
-                    <TableHead className="text-right">Horário</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {historyEvents.length > 0 ? historyEvents.map(event => (
-                    <TableRow key={event.label}>
-                      <TableCell>{event.label}</TableCell>
-                      <TableCell className="text-right">{format(new Date(event.time), 'HH:mm:ss')}</TableCell>
-                    </TableRow>
-                  )) : (
-                    <TableRow>
-                       <TableCell colSpan={2} className="text-center">Nenhum registro hoje.</TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+            <ScrollArea className="h-96 pr-6">
+                {generalHistory.length > 0 ? (
+                    <Accordion type="multiple" className="w-full">
+                        {generalHistory.map(({ day, events }) => (
+                            <AccordionItem value={day} key={day}>
+                                <AccordionTrigger>
+                                    {format(new Date(day), "PPP", { locale: ptBR })} - {format(new Date(day), "eeee", { locale: ptBR })}
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Evento</TableHead>
+                                                <TableHead className="text-right">Horário</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {events.map(event => (
+                                                <TableRow key={event.id}>
+                                                    <TableCell>{event.label}</TableCell>
+                                                    <TableCell className="text-right font-mono">
+                                                        {editingEvent?.id === event.id ? (
+                                                            <Input
+                                                                type="time"
+                                                                defaultValue={format(new Date(event.time), "HH:mm")}
+                                                                onBlur={(e) => handleUpdateTime(event.entryId, event.fieldToEdit, e.target.value)}
+                                                                autoFocus
+                                                                className="w-24 float-right"
+                                                            />
+                                                        ) : (
+                                                            <button className="p-1 rounded hover:bg-muted" onClick={() => setEditingEvent({ id: event.id })}>
+                                                                {format(new Date(event.time), 'HH:mm:ss')}
+                                                            </button>
+                                                        )}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </AccordionContent>
+                            </AccordionItem>
+                        ))}
+                    </Accordion>
+                ) : (
+                    <p className="text-center text-muted-foreground py-10">Nenhum registro encontrado.</p>
+                )}
             </ScrollArea>
             <AlertDialogFooter>
-              <AlertDialogCancel>Fechar</AlertDialogCancel>
+              <AlertDialogCancel onClick={() => setEditingEvent(null)}>Fechar</AlertDialogCancel>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
