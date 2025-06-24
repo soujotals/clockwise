@@ -122,25 +122,31 @@ export default function RegistroFacilPage() {
       
       const today = new Date();
       const todayEntries = parsedEntries.filter(e => isSameDay(new Date(e.startTime), today));
-      const todayActiveEntry = todayEntries.find(e => !e.endTime);
-      const todayCompletedEntries = todayEntries.filter(e => e.endTime);
+      const activeEntry = todayEntries.find(e => !e.endTime);
+      const completedEntriesCount = todayEntries.filter(e => e.endTime).length;
 
-      if (todayActiveEntry) {
-          setCurrentEntry(todayActiveEntry);
-          if (todayCompletedEntries.length === 0) {
-              setWorkdayStatus('WORKING_MORNING');
+      const totalEvents = completedEntriesCount * 2 + (activeEntry ? 1 : 0);
+      const cycleStep = totalEvents % 4;
+
+      setCurrentEntry(activeEntry || null);
+
+      if (activeEntry) { // User is working
+        if (cycleStep === 1) {
+          // After "Entrada"
+          setWorkdayStatus('WORKING_MORNING');
+        } else { // cycleStep === 3, after "Retorno"
+          setWorkdayStatus('WORKING_AFTERNOON');
+        }
+      } else { // User is not working
+        if (cycleStep === 0) {
+          if (totalEvents === 0) {
+            setWorkdayStatus('NOT_STARTED');
           } else {
-              setWorkdayStatus('WORKING_AFTERNOON');
+            setWorkdayStatus('DAY_ENDED');
           }
-      } else {
-          setCurrentEntry(null);
-          if (todayCompletedEntries.length === 0) {
-              setWorkdayStatus('NOT_STARTED');
-          } else if (todayCompletedEntries.length === 1) {
-              setWorkdayStatus('ON_BREAK');
-          } else {
-              setWorkdayStatus('DAY_ENDED');
-          }
+        } else { // cycleStep === 2, after "Pausa"
+          setWorkdayStatus('ON_BREAK');
+        }
       }
     }
   }, []);
@@ -159,6 +165,7 @@ export default function RegistroFacilPage() {
   const handleClockAction = useCallback(() => {
     const actionTime = new Date().toISOString();
     switch (workdayStatus) {
+      case 'DAY_ENDED':
       case 'NOT_STARTED': { // Action: Entrada
         const newEntry: TimeEntry = { id: crypto.randomUUID(), startTime: actionTime };
         setTimeEntries(prev => [...prev, newEntry]);
@@ -189,13 +196,6 @@ export default function RegistroFacilPage() {
           setCurrentEntry(null);
           setWorkdayStatus('DAY_ENDED');
         }
-        break;
-      }
-      case 'DAY_ENDED': { // Action: Retorno (Loop)
-        const newEntry: TimeEntry = { id: crypto.randomUUID(), startTime: actionTime };
-        setTimeEntries(prev => [...prev, newEntry]);
-        setCurrentEntry(newEntry);
-        setWorkdayStatus('WORKING_AFTERNOON');
         break;
       }
     }
@@ -299,11 +299,12 @@ export default function RegistroFacilPage() {
     const historyWithEvents = Object.entries(entriesByDay).map(([day, entries]) => {
       const sortedEntries = [...entries].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
       
-      const dayEvents = sortedEntries.flatMap((entry, index) => {
+      let workSessionIndex = 0;
+      const dayEvents = sortedEntries.flatMap((entry) => {
         const events = [];
         events.push({
           id: `${entry.id}-start`,
-          label: index === 0 ? 'Entrada' : 'Retorno',
+          label: workSessionIndex === 0 ? 'Entrada' : 'Retorno',
           time: entry.startTime,
           entryId: entry.id,
           fieldToEdit: 'startTime' as const
@@ -312,11 +313,12 @@ export default function RegistroFacilPage() {
         if (entry.endTime) {
           events.push({
             id: `${entry.id}-end`,
-            label: index === 0 ? 'Pausa' : 'Saída',
+            label: workSessionIndex === 0 ? 'Pausa' : 'Saída',
             time: entry.endTime,
             entryId: entry.id,
             fieldToEdit: 'endTime' as const
           });
+          workSessionIndex++;
         }
         return events;
       });
@@ -345,8 +347,8 @@ export default function RegistroFacilPage() {
             originalDate.getDate(),
             hours,
             minutes,
-            0, // seconds
-            0 // milliseconds
+            originalDate.getSeconds(),
+            originalDate.getMilliseconds()
           );
 
           return { ...entry, [field]: updatedDate.toISOString() };
@@ -360,11 +362,11 @@ export default function RegistroFacilPage() {
   
   const buttonConfig = useMemo(() => {
     switch (workdayStatus) {
+      case 'DAY_ENDED':
       case 'NOT_STARTED': return { text: ['Registrar', 'Entrada'], icon: LogIn, disabled: false };
       case 'WORKING_MORNING': return { text: ['Registrar', 'Pausa'], icon: Coffee, disabled: false };
       case 'ON_BREAK': return { text: ['Registrar', 'Retorno'], icon: Play, disabled: false };
       case 'WORKING_AFTERNOON': return { text: ['Registrar', 'Saída'], icon: LogOut, disabled: false };
-      case 'DAY_ENDED': return { text: ['Registrar', 'Retorno'], icon: Play, disabled: false };
     }
   }, [workdayStatus]);
 
