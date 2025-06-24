@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { ArrowLeft, Briefcase, Clock, Bell, Info, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,6 +52,22 @@ export default function SettingsPage() {
   };
 
   const weeklyHoursChanged = Number(weeklyHours) !== Number(initialWeeklyHours);
+
+  const dailyHoursDistribution = useMemo(() => {
+    const totalDecimalHours = Number(weeklyHours) / 5;
+    if (isNaN(totalDecimalHours) || totalDecimalHours <= 0) {
+      return "8h por dia útil (segunda a sexta-feira)";
+    }
+
+    const hours = Math.floor(totalDecimalHours);
+    const minutes = Math.round((totalDecimalHours - hours) * 60);
+
+    if (minutes === 0) {
+        return `${hours}h por dia útil (segunda a sexta-feira)`;
+    }
+
+    return `${hours}h${String(minutes).padStart(2, '0')}m por dia útil (segunda a sexta-feira)`;
+  }, [weeklyHours]);
 
   return (
     <div className="bg-background text-foreground min-h-screen flex flex-col">
@@ -124,7 +140,7 @@ export default function SettingsPage() {
                 <div className="flex justify-between items-center">
                     <div>
                         <p className="font-semibold">Distribuição automática</p>
-                        <p className="text-sm">8h por dia útil (segunda a sexta-feira)</p>
+                        <p className="text-sm">{dailyHoursDistribution}</p>
                     </div>
                 </div>
             </div>
