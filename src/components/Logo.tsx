@@ -10,6 +10,7 @@ const Logo = (props: SVGProps<SVGSVGElement>) => (
     strokeWidth={2}
     strokeLinecap="round"
     strokeLinejoin="round"
+    suppressHydrationWarning
     {...props}
   >
     <circle cx={12} cy={12} r={10} />
