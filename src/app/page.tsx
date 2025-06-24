@@ -27,6 +27,8 @@ import {
   Play,
   Trash2,
   Pencil,
+  Coffee,
+  CheckCircle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -49,7 +51,7 @@ import { TimeEntry, getTimeEntries, addTimeEntry, updateTimeEntry, deleteTimeEnt
 import { Workdays, AppSettings, getSettings } from "@/services/settings.service";
 
 
-type WorkdayStatus = 'NOT_STARTED' | 'WORKING' | 'ON_BREAK';
+type WorkdayStatus = 'NOT_STARTED' | 'WORKING_BEFORE_BREAK' | 'ON_BREAK' | 'WORKING_AFTER_BREAK' | 'FINISHED';
 
 const defaultWorkdays: Workdays = {
   sun: false,
@@ -149,49 +151,61 @@ export default function RegistroFacilPage() {
   }, [isLoading]);
   
   const { workdayStatus, currentEntry } = useMemo(() => {
-    const todayEntries = timeEntries.filter(entry => isSameDay(new Date(entry.startTime), now));
-    const activeEntry = todayEntries.find(entry => !entry.endTime);
+    const todayEntries = timeEntries
+      .filter(entry => isSameDay(new Date(entry.startTime), now))
+      .sort((a,b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
     
-    let totalEvents = 0;
-    todayEntries.forEach(entry => {
-      totalEvents++; // For startTime
-      if (entry.endTime) {
-        totalEvents++; // For endTime
-      }
-    });
+    const activeEntry = todayEntries.find(entry => !entry.endTime);
 
     let status: WorkdayStatus;
 
-    if (activeEntry) {
-      status = 'WORKING';
-    } else {
-      if (totalEvents === 0) {
+    if (todayEntries.length === 0) {
         status = 'NOT_STARTED';
-      } else {
+    } else if (todayEntries.length === 1 && activeEntry) {
+        status = 'WORKING_BEFORE_BREAK';
+    } else if (todayEntries.length === 1 && !activeEntry) {
         status = 'ON_BREAK';
-      }
+    } else if (todayEntries.length === 2 && activeEntry) {
+        status = 'WORKING_AFTER_BREAK';
+    } else if (todayEntries.length >= 2 && !activeEntry) {
+        status = 'FINISHED';
+    } else {
+        status = 'FINISHED';
     }
     
     return { workdayStatus: status, currentEntry: activeEntry || null };
   }, [timeEntries, now]);
 
   const handleClockAction = useCallback(async () => {
-    if (!user) return;
+    if (!user || workdayStatus === 'FINISHED') return;
     const actionTime = new Date().toISOString();
     
-    const activeEntry = timeEntries
+    const todayEntries = timeEntries
       .filter(entry => isSameDay(new Date(entry.startTime), new Date()))
-      .find(entry => !entry.endTime);
+      .sort((a,b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+    
+    const activeEntry = todayEntries.find(entry => !entry.endTime);
 
     try {
-      if (activeEntry) {
-        const updatedEntry = { ...activeEntry, endTime: actionTime };
-        await updateTimeEntry(user.uid, updatedEntry);
-        setTimeEntries(prev => prev.map(e => (e.id === activeEntry.id ? updatedEntry : e)));
-      } else {
+      if (workdayStatus === 'NOT_STARTED') {
         const newEntryData = { startTime: actionTime };
         const savedEntry = await addTimeEntry(user.uid, newEntryData);
         setTimeEntries(prev => [...prev, savedEntry]);
+
+      } else if (workdayStatus === 'WORKING_BEFORE_BREAK' && activeEntry) {
+        const updatedEntry = { ...activeEntry, endTime: actionTime };
+        await updateTimeEntry(user.uid, updatedEntry);
+        setTimeEntries(prev => prev.map(e => (e.id === activeEntry.id ? updatedEntry : e)));
+
+      } else if (workdayStatus === 'ON_BREAK') {
+        const newEntryData = { startTime: actionTime };
+        const savedEntry = await addTimeEntry(user.uid, newEntryData);
+        setTimeEntries(prev => [...prev, savedEntry]);
+
+      } else if (workdayStatus === 'WORKING_AFTER_BREAK' && activeEntry) {
+        const updatedEntry = { ...activeEntry, endTime: actionTime };
+        await updateTimeEntry(user.uid, updatedEntry);
+        setTimeEntries(prev => prev.map(e => (e.id === activeEntry.id ? updatedEntry : e)));
       }
     } catch(error) {
       console.error("Failed to save time entry:", error);
@@ -201,7 +215,7 @@ export default function RegistroFacilPage() {
         variant: "destructive",
       });
     }
-  }, [timeEntries, toast, user]);
+  }, [timeEntries, toast, user, workdayStatus]);
 
   const elapsedTime = useMemo(() => {
     if (currentEntry) {
@@ -281,13 +295,20 @@ export default function RegistroFacilPage() {
   }, [dailyHours, timeEntries, workHoursPerDay, workdays, settings]);
 
   const lastEvent = useMemo(() => {
-    const todayEntries = timeEntries.filter(e => isSameDay(new Date(e.startTime), now));
+    const todayEntries = timeEntries
+      .filter(e => isSameDay(new Date(e.startTime), now))
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+
     if (todayEntries.length === 0) return { label: 'Nenhum registro hoje', time: null };
 
-    const allEvents = todayEntries.flatMap(e => {
-        const events = [{ time: e.startTime, isStart: true, type: 'Entrada' }];
-        if (e.endTime) {
-            events.push({ time: e.endTime, isStart: false, type: 'Saída' });
+    const allEvents = todayEntries.slice(0, 2).flatMap((entry, entryIndex) => {
+        const events = [];
+        if (entryIndex === 0) {
+            events.push({ time: entry.startTime, type: 'Entrada' });
+            if (entry.endTime) events.push({ time: entry.endTime, type: 'Saída p/ Intervalo' });
+        } else {
+            events.push({ time: entry.startTime, type: 'Retorno do Intervalo' });
+            if (entry.endTime) events.push({ time: entry.endTime, type: 'Saída' });
         }
         return events;
     }).sort((a,b) => new Date(b.time).getTime() - new Date(a.time).getTime());
@@ -295,7 +316,7 @@ export default function RegistroFacilPage() {
     const last = allEvents[0];
     if (!last) return { label: 'Nenhum registro hoje', time: null };
 
-    return { label: `${last.type} às`, time: last.time };
+    return { label: last.type, time: last.time };
   }, [timeEntries, now]);
   
   const generalHistory = useMemo(() => {
@@ -310,28 +331,47 @@ export default function RegistroFacilPage() {
     }, {} as Record<string, TimeEntry[]>);
 
     return Object.entries(entriesByDay).map(([day, entries]) => {
-      const sortedEntries = [...entries].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+      const sortedEntries = [...entries]
+        .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+        .slice(0, 2); 
       
       const dayEvents = sortedEntries.flatMap((entry, entryIndex) => {
           const events = [];
-          const entryNumber = sortedEntries.length > 1 ? ` ${entryIndex + 1}` : '';
           
-          events.push({
-              id: `${entry.id}-start`,
-              time: entry.startTime,
-              entryId: entry.id,
-              fieldToEdit: 'startTime' as const,
-              label: `Entrada${entryNumber}`
-          });
-
-          if (entry.endTime) {
+          if (entryIndex === 0) {
               events.push({
-                  id: `${entry.id}-end`,
-                  time: entry.endTime,
+                  id: `${entry.id}-start`,
+                  time: entry.startTime,
                   entryId: entry.id,
-                  fieldToEdit: 'endTime' as const,
-                  label: `Saída${entryNumber}`
+                  fieldToEdit: 'startTime' as const,
+                  label: `Entrada`
               });
+              if (entry.endTime) {
+                  events.push({
+                      id: `${entry.id}-end`,
+                      time: entry.endTime,
+                      entryId: entry.id,
+                      fieldToEdit: 'endTime' as const,
+                      label: `Saída p/ Intervalo`
+                  });
+              }
+          } else if (entryIndex === 1) {
+              events.push({
+                  id: `${entry.id}-start`,
+                  time: entry.startTime,
+                  entryId: entry.id,
+                  fieldToEdit: 'startTime' as const,
+                  label: `Retorno do Intervalo`
+              });
+              if (entry.endTime) {
+                  events.push({
+                      id: `${entry.id}-end`,
+                      time: entry.endTime,
+                      entryId: entry.id,
+                      fieldToEdit: 'endTime' as const,
+                      label: `Saída`
+                  });
+              }
           }
           return events;
       }).sort((a,b) => new Date(a.time).getTime() - new Date(b.time).getTime());
@@ -384,38 +424,73 @@ export default function RegistroFacilPage() {
   const handleDeleteEntry = async (entryId: string) => {
     if (!user) return;
     try {
-      await deleteTimeEntry(user.uid, entryId);
-      setTimeEntries(prevEntries => prevEntries.filter(entry => entry.id !== entryId));
+      const entryToDelete = timeEntries.find(e => e.id === entryId);
+      if (!entryToDelete) return;
+
+      const dayOfEntry = startOfDay(new Date(entryToDelete.startTime));
+      
+      const entriesForDay = timeEntries.filter(e => isSameDay(new Date(e.startTime), dayOfEntry));
+
+      await Promise.all(entriesForDay.map(e => deleteTimeEntry(user.uid, e.id)));
+
+      setTimeEntries(prevEntries => prevEntries.filter(e => !isSameDay(new Date(e.startTime), dayOfEntry)));
+
       toast({
-        title: "Registro Excluído",
-        description: "O registro de ponto foi removido com sucesso.",
+        title: "Registros Excluídos",
+        description: "Todos os registros de ponto do dia foram removidos com sucesso.",
       });
     } catch(error) {
-      console.error("Failed to delete time entry:", error);
+      console.error("Failed to delete time entries:", error);
       toast({
         title: "Erro ao Excluir",
-        description: "Não foi possível remover o registro. Tente novamente.",
+        description: "Não foi possível remover os registros do dia. Tente novamente.",
         variant: "destructive",
       });
     }
   };
   
   const buttonConfig = useMemo(() => {
-    if (workdayStatus === 'WORKING') {
-      return { text: ['Registrar', 'Saída'], icon: LogOut, disabled: false };
+    switch (workdayStatus) {
+      case 'NOT_STARTED':
+        return { text: ['Registrar', 'Entrada'], icon: LogIn, disabled: false };
+      case 'WORKING_BEFORE_BREAK':
+        return { text: ['Sair para', 'Intervalo'], icon: Coffee, disabled: false };
+      case 'ON_BREAK':
+        return { text: ['Retornar do', 'Intervalo'], icon: Play, disabled: false };
+      case 'WORKING_AFTER_BREAK':
+        return { text: ['Registrar', 'Saída'], icon: LogOut, disabled: false };
+      case 'FINISHED':
+      default:
+        return { text: ['Expediente', 'Encerrado'], icon: CheckCircle, disabled: true };
     }
-    return { text: ['Registrar', 'Entrada'], icon: LogIn, disabled: false };
   }, [workdayStatus]);
 
   const statusLabel = useMemo(() => {
+    const todayEntries = timeEntries
+      .filter(entry => isSameDay(new Date(entry.startTime), now))
+      .sort((a,b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+      
     switch (workdayStatus) {
-      case 'NOT_STARTED': return 'Fora do expediente';
-      case 'WORKING': return `Em expediente desde ${formatTime(currentEntry?.startTime || now)}`;
-      case 'ON_BREAK': 
-        if(lastEvent.time) return `Pausa iniciada às ${formatTime(lastEvent.time)}`;
-        return 'Em pausa';
+      case 'NOT_STARTED': 
+        return 'Fora do expediente';
+      case 'WORKING_BEFORE_BREAK':
+        return `Em expediente desde ${formatTime(currentEntry?.startTime || now)}`;
+      case 'ON_BREAK': {
+        const firstEntry = todayEntries[0];
+        if(firstEntry?.endTime) return `Em intervalo desde ${formatTime(firstEntry.endTime)}`;
+        return 'Em intervalo';
+      }
+      case 'WORKING_AFTER_BREAK':
+        return `Trabalhando desde ${formatTime(currentEntry?.startTime || now)}`;
+      case 'FINISHED': {
+         const lastEntry = todayEntries[todayEntries.length -1];
+         if(lastEntry?.endTime) return `Expediente encerrado às ${formatTime(lastEntry.endTime)}`;
+         return 'Expediente encerrado';
+      }
+      default:
+        return 'Status desconhecido';
     }
-  }, [workdayStatus, currentEntry, now, lastEvent]);
+  }, [workdayStatus, currentEntry, timeEntries, now]);
   
   const handleLogout = async () => {
     try {
@@ -475,11 +550,11 @@ export default function RegistroFacilPage() {
           <span className="text-base font-normal">{buttonConfig.text[1]}</span>
         </Button>
 
-        {workdayStatus === 'WORKING' && (
+        {workdayStatus === 'WORKING_BEFORE_BREAK' || workdayStatus === 'WORKING_AFTER_BREAK' ? (
           <div className="text-5xl font-mono tracking-widest animate-in fade-in-0 duration-500 delay-300">
               {formatDuration(elapsedTime)}
           </div>
-        )}
+        ) : null}
         
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-400">
           <Card className="w-full bg-card">
@@ -487,7 +562,7 @@ export default function RegistroFacilPage() {
               <div>
                 <p className="text-sm text-muted-foreground">Último registro</p>
                 <p className="text-lg font-semibold">
-                  {lastEvent.time ? `${lastEvent.label.replace(' às', '')} ${formatTime(lastEvent.time)}` : lastEvent.label}
+                  {lastEvent.time ? `${lastEvent.label} ${formatTime(lastEvent.time)}` : lastEvent.label}
                 </p>
               </div>
               <Clock size={24} className="text-muted-foreground" />
@@ -526,13 +601,12 @@ export default function RegistroFacilPage() {
                         {generalHistory.map(({ day, events }) => {
                             const dayDate = parse(day, 'yyyy-MM-dd', new Date());
                             const totalDayMillis = events.reduce((acc, event, index, arr) => {
-                                if (index % 2 === 1) {
-                                    const startEvent = arr[index - 1];
-                                    if (startEvent && event.time) {
-                                        const startTime = new Date(startEvent.time).getTime();
-                                        const endTime = new Date(event.time).getTime();
-                                        acc += (endTime - startTime);
-                                    }
+                                const eventTime = new Date(event.time).getTime();
+                                if (event.label === 'Saída p/ Intervalo' || event.label === 'Saída') {
+                                  const correspondingStartEvent = arr.find(e => e.entryId === event.entryId && (e.label === 'Entrada' || e.label === 'Retorno do Intervalo'));
+                                  if (correspondingStartEvent) {
+                                    acc += eventTime - new Date(correspondingStartEvent.time).getTime();
+                                  }
                                 }
                                 return acc;
                             }, 0);
@@ -592,7 +666,7 @@ export default function RegistroFacilPage() {
                                                                 <AlertDialogHeader>
                                                                     <AlertDialogTitle>Excluir permanentemente?</AlertDialogTitle>
                                                                     <AlertDialogDescription>
-                                                                        Esta ação não pode ser desfeita. Isso excluirá permanentemente o par de registros de ponto (entrada/saída).
+                                                                        Esta ação não pode ser desfeita. Isso excluirá permanentemente todos os registros de ponto para este dia.
                                                                     </AlertDialogDescription>
                                                                 </AlertDialogHeader>
                                                                 <AlertDialogFooter>
