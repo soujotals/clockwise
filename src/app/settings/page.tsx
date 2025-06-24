@@ -16,10 +16,52 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { useToast } from "@/hooks/use-toast";
 
+type Workdays = {
+  sun: boolean;
+  mon: boolean;
+  tue: boolean;
+  wed: boolean;
+  thu: boolean;
+  fri: boolean;
+  sat: boolean;
+};
+
+const defaultWorkdays: Workdays = {
+  sun: false,
+  mon: true,
+  tue: true,
+  wed: true,
+  thu: true,
+  fri: true,
+  sat: false,
+};
+
+const dayLabels: { [key in keyof Workdays]: string } = {
+  sun: 'D',
+  mon: 'S',
+  tue: 'T',
+  wed: 'Q',
+  thu: 'Q',
+  fri: 'S',
+  sat: 'S',
+};
+
+const dayFullNames: { [key in keyof Workdays]: string } = {
+  sun: 'Domingo',
+  mon: 'Segunda',
+  tue: 'Terça',
+  wed: 'Quarta',
+  thu: 'Quinta',
+  fri: 'Sexta',
+  sat: 'Sábado',
+};
+
 export default function SettingsPage() {
   const { toast } = useToast();
   const [weeklyHours, setWeeklyHours] = useState<string | number>(40);
   const [initialWeeklyHours, setInitialWeeklyHours] = useState<string | number>(40);
+  const [workdays, setWorkdays] = useState<Workdays>(defaultWorkdays);
+  const [initialWorkdays, setInitialWorkdays] = useState<Workdays>(defaultWorkdays);
   const [is24hFormat, setIs24hFormat] = useState(true);
   const [enableReminders, setEnableReminders] = useState(true);
 
@@ -30,9 +72,16 @@ export default function SettingsPage() {
       const hours = settings.weeklyHours || 40;
       setWeeklyHours(hours);
       setInitialWeeklyHours(hours);
+      const savedWorkdays = settings.workdays || defaultWorkdays;
+      setWorkdays(savedWorkdays);
+      setInitialWorkdays(savedWorkdays);
     }
   }, []);
   
+  const handleToggleDay = (day: keyof Workdays) => {
+    setWorkdays(prev => ({ ...prev, [day]: !prev[day] }));
+  };
+
   const handleSave = () => {
     const savedSettingsRaw = localStorage.getItem('appSettings');
     const savedSettings = savedSettingsRaw ? JSON.parse(savedSettingsRaw) : {};
@@ -40,33 +89,47 @@ export default function SettingsPage() {
     const newSettings = {
       ...savedSettings,
       weeklyHours: Number(weeklyHours),
+      workdays,
     };
 
     localStorage.setItem('appSettings', JSON.stringify(newSettings));
     setInitialWeeklyHours(Number(weeklyHours));
+    setInitialWorkdays(workdays);
     toast({
-      title: "Configuração Salva",
-      description: "Sua carga horária semanal foi atualizada.",
+      title: "Configurações Salvas",
+      description: "Suas preferências foram atualizadas.",
     });
   };
 
   const weeklyHoursChanged = Number(weeklyHours) !== Number(initialWeeklyHours);
+  const workdaysChanged = JSON.stringify(workdays) !== JSON.stringify(initialWorkdays);
+  const hasChanges = weeklyHoursChanged || workdaysChanged;
 
   const dailyHoursDistribution = useMemo(() => {
-    const totalDecimalHours = Number(weeklyHours) / 5;
+    const numberOfWorkDays = Object.values(workdays).filter(Boolean).length;
+    if (numberOfWorkDays === 0) {
+      return "Nenhum dia de trabalho selecionado";
+    }
+    
+    const totalDecimalHours = Number(weeklyHours) / numberOfWorkDays;
     if (isNaN(totalDecimalHours) || totalDecimalHours <= 0) {
-      return "8h por dia útil (segunda a sexta-feira)";
+      return "Defina a carga horária e os dias de trabalho";
     }
 
     const hours = Math.floor(totalDecimalHours);
     const minutes = Math.round((totalDecimalHours - hours) * 60);
+    const selectedDays = (Object.keys(workdays) as Array<keyof Workdays>)
+        .filter(day => workdays[day])
+        .map(day => dayFullNames[day].slice(0, 3))
+        .join(', ');
+
 
     if (minutes === 0) {
-        return `${hours}h por dia útil (segunda a sexta-feira)`;
+        return `${hours}h por dia (${selectedDays})`;
     }
 
-    return `${hours}h${String(minutes).padStart(2, '0')}m por dia útil (segunda a sexta-feira)`;
-  }, [weeklyHours]);
+    return `${hours}h${String(minutes).padStart(2, '0')}m por dia (${selectedDays})`;
+  }, [weeklyHours, workdays]);
 
   return (
     <div className="bg-background text-foreground min-h-screen flex flex-col">
@@ -81,14 +144,21 @@ export default function SettingsPage() {
       </header>
 
       <main className="p-4 md:p-6 space-y-8 max-w-2xl mx-auto w-full flex-grow">
-        {/* Minha Jornada de Trabalho */}
         <section className="space-y-6">
-          <h2 className="text-lg font-semibold flex items-center gap-3">
-            <Briefcase className="text-primary" />
-            Minha Jornada de Trabalho
-          </h2>
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-semibold flex items-center gap-3">
+              <Briefcase className="text-primary" />
+              Minha Jornada de Trabalho
+            </h2>
+             {hasChanges && (
+                <Button onClick={handleSave} size="sm">
+                  <Save className="mr-2 h-4 w-4" />
+                  Salvar
+                </Button>
+              )}
+          </div>
 
-          <div className="space-y-4 pl-9">
+          <div className="space-y-6 pl-9">
             <div>
                 <div className="flex items-center gap-2 mb-2">
                     <Label htmlFor="weekly-hours">Carga horária semanal</Label>
@@ -105,24 +175,42 @@ export default function SettingsPage() {
                         </Tooltip>
                     </TooltipProvider>
                 </div>
-                <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <Input
-                        id="weekly-hours"
-                        type="number"
-                        value={weeklyHours}
-                        onChange={(e) => setWeeklyHours(e.target.value)}
-                        className="w-24 bg-input border-border" />
-                      <span>horas</span>
-                    </div>
-                    {weeklyHoursChanged && (
-                      <Button onClick={handleSave} size="sm">
-                        <Save className="mr-2 h-4 w-4" />
-                        Salvar
-                      </Button>
-                    )}
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="weekly-hours"
+                    type="number"
+                    value={weeklyHours}
+                    onChange={(e) => setWeeklyHours(e.target.value)}
+                    className="w-24 bg-input border-border" />
+                  <span>horas</span>
                 </div>
                  <p className="text-xs text-muted-foreground mt-1">Exemplo: 40h, 44h, 30h - conforme seu contrato de trabalho</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Dias da semana</Label>
+              <div className="flex items-center gap-2 flex-wrap">
+                {(Object.keys(dayLabels) as Array<keyof typeof dayLabels>).map((day) => (
+                  <TooltipProvider key={day} delayDuration={100}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant={workdays[day] ? "default" : "outline"}
+                          size="icon"
+                          onClick={() => handleToggleDay(day)}
+                          className="rounded-full w-9 h-9"
+                        >
+                          {dayLabels[day].toUpperCase()}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{dayFullNames[day]}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">Selecione os dias que você trabalha para o cálculo da jornada diária.</p>
             </div>
           
             <div className="p-4 rounded-lg border border-primary bg-primary/10">
@@ -138,7 +226,6 @@ export default function SettingsPage() {
 
         <Separator />
 
-        {/* Exibição */}
         <section className="space-y-4">
             <h2 className="text-lg font-semibold flex items-center gap-3">
                 <Clock className="text-primary"/>
@@ -159,7 +246,6 @@ export default function SettingsPage() {
         
         <Separator />
 
-        {/* Notificações */}
         <section className="space-y-4">
              <h2 className="text-lg font-semibold flex items-center gap-3">
                 <Bell className="text-primary"/>

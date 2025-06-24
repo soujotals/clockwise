@@ -8,7 +8,6 @@ import {
   isSameDay,
   startOfWeek,
   eachDayOfInterval,
-  isWeekend,
   isBefore,
   startOfToday,
   startOfDay,
@@ -52,6 +51,28 @@ type TimeEntry = {
 
 type WorkdayStatus = 'NOT_STARTED' | 'WORKING_MORNING' | 'ON_BREAK' | 'WORKING_AFTERNOON' | 'DAY_ENDED';
 
+type Workdays = {
+  sun: boolean;
+  mon: boolean;
+  tue: boolean;
+  wed: boolean;
+  thu: boolean;
+  fri: boolean;
+  sat: boolean;
+};
+
+const defaultWorkdays: Workdays = {
+  sun: false,
+  mon: true,
+  tue: true,
+  wed: true,
+  thu: true,
+  fri: true,
+  sat: false,
+};
+
+const dayMap: (keyof Workdays)[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+
 const formatDuration = (milliseconds: number) => {
   if (milliseconds < 0) milliseconds = 0;
   const hours = Math.floor(milliseconds / 3600000);
@@ -75,6 +96,7 @@ export default function RegistroFacilPage() {
   const [workdayStatus, setWorkdayStatus] = useState<WorkdayStatus>('NOT_STARTED');
   const [editingEvent, setEditingEvent] = useState<{ id: string } | null>(null);
   const [workHoursPerDay, setWorkHoursPerDay] = useState(8);
+  const [workdays, setWorkdays] = useState<Workdays>(defaultWorkdays);
 
   useEffect(() => {
     setIsClient(true);
@@ -82,8 +104,14 @@ export default function RegistroFacilPage() {
     const storedSettings = localStorage.getItem('appSettings');
     if (storedSettings) {
         const settings = JSON.parse(storedSettings);
-        // Assuming 5-day work week for automatic distribution
-        setWorkHoursPerDay((settings.weeklyHours || 40) / 5);
+        const savedWorkdays = settings.workdays || defaultWorkdays;
+        setWorkdays(savedWorkdays);
+        const numberOfWorkDays = Object.values(savedWorkdays).filter(Boolean).length;
+        if (numberOfWorkDays > 0) {
+            setWorkHoursPerDay((settings.weeklyHours || 40) / numberOfWorkDays);
+        } else {
+            setWorkHoursPerDay(0);
+        }
     }
 
     const storedEntries = localStorage.getItem("timeEntries");
@@ -196,15 +224,19 @@ export default function RegistroFacilPage() {
     const today = startOfToday();
     const daysInWeekSoFar = eachDayOfInterval({ start: weekStart, end: today });
   
-    // Use state directly since it now holds all entries
     const storedEntries: TimeEntry[] = timeEntries;
   
     let workedMs = 0;
     let targetMs = 0;
+
+    const isConfiguredWorkday = (date: Date): boolean => {
+      const dayIndex = date.getDay();
+      const dayKey = dayMap[dayIndex];
+      return workdays[dayKey];
+    };
   
-    // Calculate for past days in the week
     daysInWeekSoFar.forEach(day => {
-      if (!isWeekend(day) && isBefore(day, today)) {
+      if (isConfiguredWorkday(day) && isBefore(day, today)) {
         targetMs += workHoursPerDay * 60 * 60 * 1000;
         const entriesOnDay = storedEntries.filter(e => isSameDay(new Date(e.startTime), day) && e.endTime);
         const dailyTotal = entriesOnDay.reduce((total, entry) => {
@@ -214,13 +246,12 @@ export default function RegistroFacilPage() {
       }
     });
   
-    // Add today's progress
     const totalWorkedMs = workedMs + dailyHours;
   
     const bankMs = totalWorkedMs - targetMs;
     const sign = bankMs >= 0 ? "+" : "-";
     return `${sign}${formatDuration(Math.abs(bankMs))}`;
-  }, [dailyHours, now, timeEntries, workHoursPerDay]);
+  }, [dailyHours, now, timeEntries, workHoursPerDay, workdays]);
 
   const lastEvent = useMemo(() => {
     const todayEntries = timeEntries.filter(e => isSameDay(new Date(e.startTime), now));
@@ -348,7 +379,7 @@ export default function RegistroFacilPage() {
             <TrendingUp size={18} className="text-primary" /> Progresso do dia
           </span>
           <span className="text-muted-foreground">
-            {formatDuration(dailyHours)} / {workHoursPerDay}h
+            {formatDuration(dailyHours)} / {workHoursPerDay > 0 ? `${formatDuration(workHoursPerDay * 3600000)}` : '0h'}
           </span>
         </div>
         <Progress value={progress} className="h-2" />
