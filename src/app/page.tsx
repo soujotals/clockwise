@@ -24,6 +24,7 @@ import {
   Coffee,
   Play,
   Trash2,
+  Pencil,
 } from "lucide-react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -38,12 +39,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
+} from "@/components/ui/alert-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
-
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 type TimeEntry = {
   id: string;
@@ -51,7 +50,7 @@ type TimeEntry = {
   endTime?: string; // ISO string
 };
 
-type WorkdayStatus = 'NOT_STARTED' | 'WORKING' | 'ON_BREAK' | 'DAY_ENDED';
+type WorkdayStatus = 'NOT_STARTED' | 'WORKING' | 'ON_BREAK';
 
 type Workdays = {
   sun: boolean;
@@ -135,7 +134,6 @@ export default function RegistroFacilPage() {
   const { workdayStatus, currentEntry, todayEventsCount } = useMemo(() => {
     const todayEntries = timeEntries.filter(entry => isSameDay(new Date(entry.startTime), now));
     const activeEntry = todayEntries.find(entry => !entry.endTime);
-    const completedEntriesCount = todayEntries.filter(e => e.endTime).length;
     
     const totalEvents = todayEntries.reduce((acc, entry) => {
         acc += 1;
@@ -150,11 +148,7 @@ export default function RegistroFacilPage() {
     } else {
       if (totalEvents === 0) {
         status = 'NOT_STARTED';
-      } else if (totalEvents % 2 === 0) {
-        status = 'ON_BREAK';
       } else {
-        // This case should ideally not happen if logic is correct
-        // but as a fallback, we treat it as on break
         status = 'ON_BREAK';
       }
     }
@@ -263,8 +257,8 @@ export default function RegistroFacilPage() {
       if (cycleStep === 1) return { label: 'Pausa às', time: last.time };
       if (cycleStep === 3) return { label: 'Saída às', time: last.time };
     }
-    // Fallback for more than 4 entries
-    return { label: last.isStart ? 'Entrada às' : 'Saída às', time: last.time };
+    const label = (allEvents.length % 2 !== 0) ? 'Entrada às' : 'Saída às'
+    return { label, time: last.time };
   }, [timeEntries, now]);
   
   const generalHistory = useMemo(() => {
@@ -304,8 +298,16 @@ export default function RegistroFacilPage() {
         day,
         events: dayEvents.map((event, index) => {
           const labels = ['Entrada', 'Pausa', 'Retorno', 'Saída'];
+          let label;
+          const cycleNumber = Math.floor(index / 4);
           const labelIndex = index % 4;
-          return {...event, label: labels[labelIndex] || (index % 2 === 0 ? `Entrada ${Math.floor(index/2) + 1}` : `Saída ${Math.floor(index/2) + 1}`)};
+          
+          label = labels[labelIndex]
+          if (cycleNumber > 0) {
+            label = `${label} ${cycleNumber + 1}`
+          }
+
+          return {...event, label };
         })
       };
     });
@@ -318,7 +320,7 @@ export default function RegistroFacilPage() {
       const newEntries = prevEntries.map(entry => {
         if (entry.id === entryId) {
           const originalDateString = entry[field] || entry.startTime;
-          const originalDate = startOfDay(new Date(originalDateString));
+          const originalDate = new Date(originalDateString);
 
           const [hours, minutes] = newTimeValue.split(':').map(Number);
           
@@ -352,8 +354,11 @@ export default function RegistroFacilPage() {
       if (nextActionIndex === 0) return { text: ['Registrar', 'Entrada'], icon: LogIn, disabled: false };
       if (nextActionIndex === 2) return { text: ['Registrar', 'Retorno'], icon: Play, disabled: false };
 
-      // Fallback
-      return { text: ['Registrar', 'Ponto'], icon: Clock, disabled: false };
+      // Fallback for subsequent cycles
+      const isStarting = todayEventsCount % 2 === 0;
+      if (isStarting) return { text: ['Registrar', 'Entrada'], icon: LogIn, disabled: false };
+      return { text: ['Registrar', 'Saída'], icon: LogOut, disabled: false };
+      
   }, [workdayStatus, todayEventsCount]);
 
   const statusLabel = useMemo(() => {
@@ -363,7 +368,6 @@ export default function RegistroFacilPage() {
       case 'ON_BREAK': 
         if(lastEvent.time) return `${lastEvent.label.replace(' às', '')} desde ${formatTime(lastEvent.time)}`;
         return 'Em pausa';
-      case 'DAY_ENDED': return 'Expediente encerrado'; // This state is less likely now
     }
   }, [workdayStatus, currentEntry, now, lastEvent]);
 
@@ -372,168 +376,200 @@ export default function RegistroFacilPage() {
   }
 
   return (
-    <main className="bg-background text-foreground flex flex-col items-center justify-center min-h-screen p-4 space-y-4 md:space-y-6 font-body text-center">
-      <div className="text-center">
-        <h1 className="text-3xl md:text-4xl font-bold text-white">Registro Fácil</h1>
-        <p className="text-muted-foreground capitalize">
-          {format(now, "dd/MM/yyyy - eeee", { locale: ptBR })}
-        </p>
-      </div>
-
-      <div className="flex items-center gap-2 text-lg text-muted-foreground">
-        <Clock size={18} />
-        <span>{statusLabel}</span>
-      </div>
-
-      <div className="w-full max-w-xs md:max-w-sm">
-        <div className="flex justify-between items-center mb-1 text-sm">
-          <span className="flex items-center gap-2 font-semibold">
-            <TrendingUp size={18} className="text-primary" /> Progresso do dia
-          </span>
-          <span className="text-muted-foreground">
-            {formatDuration(dailyHours)} / {workHoursPerDay > 0 ? `${formatDuration(workHoursPerDay * 3600000)}` : '0h'}
-          </span>
-        </div>
-        <Progress value={progress} className="h-2" />
-        <p className="text-center text-sm mt-1 text-muted-foreground">
-          {progress.toFixed(0)}% concluído
-        </p>
-      </div>
-
-      <Button
-        onClick={handleClockAction}
-        disabled={buttonConfig.disabled}
-        className="w-40 h-40 md:w-48 md:h-48 rounded-full flex flex-col items-center justify-center text-xl md:text-2xl font-bold shadow-lg bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-300 ease-in-out transform hover:scale-105 disabled:bg-muted disabled:scale-100 disabled:cursor-not-allowed"
-      >
-        <buttonConfig.icon className="mb-2" size={32} />
-        <span>{buttonConfig.text[0]}</span>
-        <span className="text-base font-normal">{buttonConfig.text[1]}</span>
-      </Button>
-
-      {workdayStatus === 'WORKING' && (
-        <div className="text-4xl font-mono tracking-widest">
-            {formatDuration(elapsedTime)}
-        </div>
-      )}
-
-      <div className="flex justify-between items-center w-full max-w-xs md:max-w-sm p-4 bg-muted/50 rounded-lg">
-        <div>
-          <p className="text-sm text-muted-foreground">Último registro</p>
-          <p className="text-lg font-semibold text-white">
-            {lastEvent.time ? `${lastEvent.label} ${formatTime(lastEvent.time)}` : lastEvent.label}
+    <main className="bg-background text-foreground flex flex-col items-center min-h-screen p-4 font-sans">
+      <div className="w-full max-w-md mx-auto flex flex-col items-center justify-center flex-grow space-y-6 text-center">
+        <div className="text-center">
+          <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight">Registro Fácil</h1>
+          <p className="text-muted-foreground capitalize mt-1">
+            {format(now, "eeee, dd/MM/yyyy", { locale: ptBR })}
           </p>
         </div>
-        <Clock size={24} className="text-muted-foreground" />
-      </div>
 
-      <div className="flex justify-between items-center w-full max-w-xs md:max-w-sm p-4 bg-muted/50 rounded-lg">
-        <div>
-          <p className="text-sm text-muted-foreground">Banco de horas (semana)</p>
-          <p className="text-lg font-semibold text-accent">
-            {timeBank}
+        <div className="flex items-center gap-2 text-lg text-muted-foreground">
+          <Clock size={18} />
+          <span>{statusLabel}</span>
+        </div>
+
+        <div className="w-full">
+          <div className="flex justify-between items-center mb-1 text-sm">
+            <span className="flex items-center gap-2 font-semibold">
+              <TrendingUp size={18} className="text-primary" /> Progresso do dia
+            </span>
+            <span className="text-muted-foreground font-mono">
+              {formatDuration(dailyHours)} / {workHoursPerDay > 0 ? `${formatDuration(workHoursPerDay * 3600000)}` : '0h'}
+            </span>
+          </div>
+          <Progress value={progress} className="h-2" />
+          <p className="text-center text-sm mt-1 text-muted-foreground">
+            {progress.toFixed(0)}% concluído
           </p>
         </div>
-        <TrendingUp size={24} className="text-accent" />
-      </div>
 
-      <div className="flex gap-4 pt-4">
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant="outline" className="bg-muted/50 border-muted-foreground/20 hover:bg-muted">
-              <BarChart className="mr-2 h-4 w-4" /> Histórico
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent className="max-w-2xl">
-            <AlertDialogHeader>
-              <AlertDialogTitle>Histórico Geral</AlertDialogTitle>
-              <AlertDialogDescription>
-                Seus registros de ponto. Clique em um horário para editar ou no ícone da lixeira para excluir.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <ScrollArea className="h-96 pr-6">
-                {generalHistory.length > 0 ? (
-                    <Accordion type="multiple" className="w-full">
-                        {generalHistory.map(({ day, events }) => (
-                            <AccordionItem value={day} key={day}>
-                                <AccordionTrigger>
-                                    {format(parse(day, 'yyyy-MM-dd', new Date()), "PPP", { locale: ptBR })} - {format(parse(day, 'yyyy-MM-dd', new Date()), "eeee", { locale: ptBR })}
-                                </AccordionTrigger>
-                                <AccordionContent>
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Evento</TableHead>
-                                                <TableHead>Horário</TableHead>
-                                                <TableHead className="text-right">Ações</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {events.map(event => (
-                                                <TableRow key={event.id}>
-                                                    <TableCell>{event.label}</TableCell>
-                                                    <TableCell className="font-mono">
-                                                        {editingEvent?.id === event.id ? (
-                                                            <Input
-                                                                type="time"
-                                                                defaultValue={format(new Date(event.time), "HH:mm")}
-                                                                onBlur={(e) => handleUpdateTime(event.entryId, event.fieldToEdit, e.target.value)}
-                                                                autoFocus
-                                                                className="w-24"
-                                                            />
-                                                        ) : (
-                                                            <button className="p-1 rounded hover:bg-muted" onClick={() => setEditingEvent({ id: event.id })}>
-                                                                {format(new Date(event.time), 'HH:mm:ss')}
-                                                            </button>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell className="text-right">
-                                                      <AlertDialog>
-                                                        <AlertDialogTrigger asChild>
-                                                          <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10">
-                                                              <Trash2 className="h-4 w-4" />
-                                                          </Button>
-                                                        </AlertDialogTrigger>
-                                                        <AlertDialogContent>
-                                                            <AlertDialogHeader>
-                                                                <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                                                                <AlertDialogDescription>
-                                                                    Esta ação não pode ser desfeita. Isso excluirá permanentemente este registro de ponto ({event.label} às {format(new Date(event.time), 'HH:mm')}).
-                                                                </AlertDialogDescription>
-                                                            </AlertDialogHeader>
-                                                            <AlertDialogFooter>
-                                                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                                <AlertDialogAction
-                                                                    className={buttonVariants({ variant: "destructive" })}
-                                                                    onClick={() => handleDeleteEntry(event.entryId)}>
-                                                                    Excluir
-                                                                </AlertDialogAction>
-                                                            </AlertDialogFooter>
-                                                        </AlertDialogContent>
-                                                      </AlertDialog>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </AccordionContent>
-                            </AccordionItem>
-                        ))}
-                    </Accordion>
-                ) : (
-                    <p className="text-center text-muted-foreground py-10">Nenhum registro encontrado.</p>
-                )}
-            </ScrollArea>
-            <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setEditingEvent(null)}>Fechar</AlertDialogCancel>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-        <Button variant="outline" className="bg-muted/50 border-muted-foreground/20 hover:bg-muted" asChild>
-          <Link href="/settings">
-            <Settings className="mr-2 h-4 w-4" /> Configurações
-          </Link>
+        <Button
+          onClick={handleClockAction}
+          disabled={buttonConfig.disabled}
+          className="w-48 h-48 md:w-56 md:h-56 rounded-full flex flex-col items-center justify-center text-xl md:text-2xl font-bold shadow-2xl shadow-primary/20 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-300 ease-in-out transform hover:scale-105 disabled:bg-muted disabled:scale-100 disabled:cursor-not-allowed"
+        >
+          <buttonConfig.icon className="mb-2" size={40} />
+          <span>{buttonConfig.text[0]}</span>
+          <span className="text-base font-normal">{buttonConfig.text[1]}</span>
         </Button>
+
+        {workdayStatus === 'WORKING' && (
+          <div className="text-5xl font-mono tracking-widest text-white/90">
+              {formatDuration(elapsedTime)}
+          </div>
+        )}
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
+          <Card className="w-full bg-muted/30">
+            <CardContent className="p-4 flex justify-between items-center">
+              <div>
+                <p className="text-sm text-muted-foreground">Último registro</p>
+                <p className="text-lg font-semibold text-white">
+                  {lastEvent.time ? `${lastEvent.label.replace(' às', '')} ${formatTime(lastEvent.time)}` : lastEvent.label}
+                </p>
+              </div>
+              <Clock size={24} className="text-muted-foreground" />
+            </CardContent>
+          </Card>
+          <Card className="w-full bg-muted/30">
+            <CardContent className="p-4 flex justify-between items-center">
+              <div>
+                <p className="text-sm text-muted-foreground">Banco de horas</p>
+                <p className="text-lg font-semibold text-accent">
+                  {timeBank}
+                </p>
+              </div>
+              <TrendingUp size={24} className="text-accent" />
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="flex gap-4 pt-4">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline">
+                <BarChart className="mr-2 h-4 w-4" /> Histórico
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent className="max-w-2xl">
+              <AlertDialogHeader>
+                <AlertDialogTitle>Histórico de Pontos</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Revise e edite seus registros. As alterações são salvas automaticamente ao sair do campo de edição.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <ScrollArea className="h-[60vh] pr-4 -mr-2">
+                  {generalHistory.length > 0 ? (
+                      <div className="space-y-4">
+                        {generalHistory.map(({ day, events }) => {
+                            const dayDate = parse(day, 'yyyy-MM-dd', new Date());
+                            const totalDayMillis = events.reduce((acc, event, index, arr) => {
+                                if (index % 2 === 1) {
+                                    const startEvent = arr[index - 1];
+                                    if (startEvent && event.time) {
+                                        const startTime = new Date(startEvent.time).getTime();
+                                        const endTime = new Date(event.time).getTime();
+                                        acc += (endTime - startTime);
+                                    }
+                                }
+                                return acc;
+                            }, 0);
+
+                            return (
+                                <Card key={day} className="bg-muted/40">
+                                    <CardHeader className="flex flex-row items-center justify-between p-4">
+                                        <div>
+                                            <CardTitle className="text-base font-bold">
+                                                {format(dayDate, "PPP", { locale: ptBR })}
+                                            </CardTitle>
+                                            <CardDescription>
+                                                {format(dayDate, "eeee", { locale: ptBR })}
+                                            </CardDescription>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-lg font-bold text-primary">{formatDuration(totalDayMillis)}</p>
+                                            <p className="text-xs text-muted-foreground">Total trabalhado</p>
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent className="p-4 pt-0">
+                                        <div className="space-y-1">
+                                            {events.map((event) => (
+                                                <div key={event.id} className="flex items-center justify-between rounded-md p-2 hover:bg-background/50">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="flex items-center justify-center h-8 w-8 rounded-full bg-primary/10 text-primary">
+                                                          <Clock size={16} />
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-semibold text-sm">{event.label}</p>
+                                                            <div className="font-mono text-sm text-muted-foreground">
+                                                                {editingEvent?.id === event.id ? (
+                                                                    <Input
+                                                                        type="time"
+                                                                        defaultValue={format(new Date(event.time), "HH:mm")}
+                                                                        onBlur={(e) => handleUpdateTime(event.entryId, event.fieldToEdit, e.target.value)}
+                                                                        autoFocus
+                                                                        className="w-24 h-8 bg-input"
+                                                                    />
+                                                                ) : (
+                                                                    <span>{format(new Date(event.time), 'HH:mm:ss')}</span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-1">
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => setEditingEvent({ id: event.id })}>
+                                                            <Pencil className="h-4 w-4" />
+                                                        </Button>
+                                                        <AlertDialog>
+                                                            <AlertDialogTrigger asChild>
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                </Button>
+                                                            </AlertDialogTrigger>
+                                                            <AlertDialogContent>
+                                                                <AlertDialogHeader>
+                                                                    <AlertDialogTitle>Excluir permanentemente?</AlertDialogTitle>
+                                                                    <AlertDialogDescription>
+                                                                        Esta ação não pode ser desfeita. Isso excluirá permanentemente o par de registros de ponto (entrada/saída).
+                                                                    </AlertDialogDescription>
+                                                                </AlertDialogHeader>
+                                                                <AlertDialogFooter>
+                                                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                                    <AlertDialogAction
+                                                                        className={buttonVariants({ variant: "destructive" })}
+                                                                        onClick={() => handleDeleteEntry(event.entryId)}>
+                                                                        Excluir
+                                                                    </AlertDialogAction>
+                                                                </AlertDialogFooter>
+                                                            </AlertDialogContent>
+                                                        </AlertDialog>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            );
+                        })}
+                    </div>
+                  ) : (
+                      <p className="text-center text-muted-foreground py-10">Nenhum registro encontrado.</p>
+                  )}
+              </ScrollArea>
+              <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setEditingEvent(null)}>Fechar</AlertDialogCancel>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          <Button variant="outline" asChild>
+            <Link href="/settings">
+              <Settings className="mr-2 h-4 w-4" /> Configurações
+            </Link>
+          </Button>
+        </div>
       </div>
     </main>
   );

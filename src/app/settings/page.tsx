@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/tooltip';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from "@/hooks/use-toast";
+import { Card, CardContent } from '@/components/ui/card';
 
 type Workdays = {
   sun: boolean;
@@ -97,7 +98,7 @@ export default function SettingsPage() {
     setInitialWorkdays(workdays);
     toast({
       title: "Configurações Salvas",
-      description: "Suas preferências foram atualizadas.",
+      description: "Suas preferências foram atualizadas com sucesso.",
     });
   };
 
@@ -132,7 +133,7 @@ export default function SettingsPage() {
   }, [weeklyHours, workdays]);
 
   return (
-    <div className="bg-background text-foreground min-h-screen flex flex-col">
+    <div className="bg-background text-foreground min-h-screen flex flex-col font-sans">
       <header className="flex items-center p-4 border-b border-border sticky top-0 bg-background/95 backdrop-blur z-10">
         <Button variant="ghost" size="icon" asChild>
           <Link href="/">
@@ -153,7 +154,7 @@ export default function SettingsPage() {
              {hasChanges && (
                 <Button onClick={handleSave} size="sm">
                   <Save className="mr-2 h-4 w-4" />
-                  Salvar
+                  Salvar Alterações
                 </Button>
               )}
           </div>
@@ -184,7 +185,7 @@ export default function SettingsPage() {
                     className="w-24 bg-input border-border" />
                   <span>horas</span>
                 </div>
-                 <p className="text-xs text-muted-foreground mt-1">Exemplo: 40h, 44h, 30h - conforme seu contrato de trabalho</p>
+                 <p className="text-xs text-muted-foreground mt-1">Exemplo: 40, 44, 30 - conforme seu contrato.</p>
             </div>
 
             <div className="space-y-2">
@@ -213,14 +214,16 @@ export default function SettingsPage() {
               <p className="text-xs text-muted-foreground">Selecione os dias que você trabalha para o cálculo da jornada diária.</p>
             </div>
           
-            <div className="p-4 rounded-lg border border-primary bg-primary/10">
-                <div className="flex justify-between items-center">
-                    <div>
-                        <p className="font-semibold">Distribuição automática</p>
-                        <p className="text-sm">{dailyHoursDistribution}</p>
-                    </div>
-                </div>
-            </div>
+            <Card className="border-primary/50 bg-primary/10">
+              <CardContent className="p-4">
+                  <div className="flex justify-between items-center">
+                      <div>
+                          <p className="font-semibold text-primary">Distribuição automática</p>
+                          <p className="text-sm text-primary/80">{dailyHoursDistribution}</p>
+                      </div>
+                  </div>
+              </CardContent>
+            </Card>
           </div>
         </section>
 
@@ -261,11 +264,10 @@ export default function SettingsPage() {
         </section>
       </main>
 
-      <footer className="text-center p-8 mt-auto">
-        <Separator className="mb-8" />
-        <p className="font-bold">Registro Fácil</p>
-        <p className="text-sm text-muted-foreground">Versão 1.0.0</p>
-        <p className="text-xs text-muted-foreground mt-2">Controle simples e eficiente do seu ponto</p>
+      <footer className="text-center p-6 mt-auto">
+        <Separator className="mb-6 max-w-xs mx-auto" />
+        <p className="font-semibold text-sm">Registro Fácil</p>
+        <p className="text-xs text-muted-foreground">Versão 1.1.0</p>
       </footer>
     </div>
   );
