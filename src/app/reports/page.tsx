@@ -338,7 +338,7 @@ export default function ReportsPage() {
                     </h2>
                     <Card>
                        <CardContent className="flex flex-col md:flex-row p-2 md:p-4 gap-4">
-                            <div className="md:w-auto">
+                            <div className="md:w-auto flex justify-center">
                                 <Calendar
                                     mode="single"
                                     selected={selectedDay}
@@ -348,8 +348,9 @@ export default function ReportsPage() {
                                     locale={ptBR}
                                     className="p-0"
                                     classNames={{
-                                        cell: "text-center text-sm p-0 relative focus-within:relative focus-within:z-20",
-                                        day: "h-14 md:h-16 w-full p-1 font-normal flex flex-col items-center justify-center rounded-md relative group",
+                                        head_cell: "text-muted-foreground rounded-md w-14 md:w-16 font-normal text-[0.8rem] text-center",
+                                        cell: "h-14 md:h-16 w-14 md:w-16 text-center text-sm p-0 relative focus-within:relative focus-within:z-20",
+                                        day: "h-full w-full p-1 font-normal flex flex-col items-center justify-center rounded-md relative group",
                                     }}
                                     components={{
                                         DayContent: ({ date, displayMonth }) => {
@@ -360,10 +361,12 @@ export default function ReportsPage() {
                                             return (
                                                 <>
                                                     <span>{format(date, 'd')}</span>
-                                                    {totalMillis > 0 && isCurrentMonth && (
+                                                    {totalMillis > 0 && isCurrentMonth ? (
                                                         <span className="text-xs font-bold mt-1 text-primary group-data-[selected]:text-primary-foreground/90">
                                                             {formatTotalDuration(totalMillis).replace('m', '').replace('h', ':')}
                                                         </span>
+                                                    ) : (
+                                                        <span className="text-xs mt-1">&nbsp;</span>
                                                     )}
                                                 </>
                                             );
