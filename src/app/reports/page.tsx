@@ -104,13 +104,6 @@ export default function ReportsPage() {
                 } else {
                     setWorkHoursPerDay(0);
                 }
-                if (settingsData.timeBankAdjustment) {
-                    const absMillis = Math.abs(settingsData.timeBankAdjustment);
-                    const hours = Math.floor(absMillis / 3600000);
-                    const minutes = Math.floor((absMillis % 3600000) / 60000);
-                    setAdjustmentValue(`${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`);
-                    setAdjustmentSign(settingsData.timeBankAdjustment >= 0 ? '+' : '-');
-                }
             }
             setIsLoading(false);
         };
@@ -198,10 +191,12 @@ export default function ReportsPage() {
             return;
         }
 
-        const adjustmentMs = (hours * 3600000 + minutes * 60000) * (adjustmentSign === '+' ? 1 : -1);
+        const adjustmentDeltaMs = (hours * 3600000 + minutes * 60000) * (adjustmentSign === '+' ? 1 : -1);
+        const currentAdjustmentMs = settings?.timeBankAdjustment || 0;
+        const newTotalAdjustmentMs = currentAdjustmentMs + adjustmentDeltaMs;
 
         try {
-            await saveSettings(user.uid, { timeBankAdjustment: adjustmentMs });
+            await saveSettings(user.uid, { timeBankAdjustment: newTotalAdjustmentMs });
             
             const updatedSettings = await getSettings(user.uid);
             setSettings(updatedSettings);
@@ -262,12 +257,18 @@ export default function ReportsPage() {
                 </section>
             </main>
 
-            <AlertDialog open={isAdjustmentDialogOpen} onOpenChange={setIsAdjustmentDialogOpen}>
+            <AlertDialog open={isAdjustmentDialogOpen} onOpenChange={(open) => {
+                setIsAdjustmentDialogOpen(open);
+                if (!open) {
+                    setAdjustmentValue("00:00");
+                    setAdjustmentSign("+");
+                }
+            }}>
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Ajustar Saldo Manualmente</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Defina um valor para adicionar ou subtrair do seu saldo de horas. Isso é útil para corrigir o saldo inicial ou registrar horas de outro sistema.
+                    Adicione ou remova horas do seu saldo. O valor inserido será somado (ou subtraído) do seu banco de horas existente. Isso é útil para correções ou para registrar um saldo inicial.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <div className="flex items-center gap-2 py-4">
