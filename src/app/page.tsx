@@ -93,8 +93,6 @@ export default function RegistroFacilPage() {
   const [isClient, setIsClient] = useState(false);
   const [now, setNow] = useState(new Date());
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
-  const [currentEntry, setCurrentEntry] = useState<TimeEntry | null>(null);
-  const [workdayStatus, setWorkdayStatus] = useState<WorkdayStatus>('NOT_STARTED');
   const [editingEvent, setEditingEvent] = useState<{ id: string } | null>(null);
   const [workHoursPerDay, setWorkHoursPerDay] = useState(8);
   const [workdays, setWorkdays] = useState<Workdays>(defaultWorkdays);
@@ -119,35 +117,6 @@ export default function RegistroFacilPage() {
     if (storedEntries) {
       const parsedEntries: TimeEntry[] = JSON.parse(storedEntries);
       setTimeEntries(parsedEntries);
-      
-      const today = new Date();
-      const todayEntries = parsedEntries.filter(e => isSameDay(new Date(e.startTime), today));
-      const activeEntry = todayEntries.find(e => !e.endTime);
-      const completedEntriesCount = todayEntries.filter(e => e.endTime).length;
-
-      const totalEvents = completedEntriesCount * 2 + (activeEntry ? 1 : 0);
-      const cycleStep = totalEvents % 4;
-
-      setCurrentEntry(activeEntry || null);
-
-      if (activeEntry) { // User is working
-        if (cycleStep === 1) {
-          // After "Entrada"
-          setWorkdayStatus('WORKING_MORNING');
-        } else { // cycleStep === 3, after "Retorno"
-          setWorkdayStatus('WORKING_AFTERNOON');
-        }
-      } else { // User is not working
-        if (cycleStep === 0) {
-          if (totalEvents === 0) {
-            setWorkdayStatus('NOT_STARTED');
-          } else {
-            setWorkdayStatus('DAY_ENDED');
-          }
-        } else { // cycleStep === 2, after "Pausa"
-          setWorkdayStatus('ON_BREAK');
-        }
-      }
     }
   }, []);
 
@@ -162,44 +131,52 @@ export default function RegistroFacilPage() {
     }
   }, [timeEntries, isClient]);
   
-  const handleClockAction = useCallback(() => {
-    const actionTime = new Date().toISOString();
-    switch (workdayStatus) {
-      case 'DAY_ENDED':
-      case 'NOT_STARTED': { // Action: Entrada
-        const newEntry: TimeEntry = { id: crypto.randomUUID(), startTime: actionTime };
-        setTimeEntries(prev => [...prev, newEntry]);
-        setCurrentEntry(newEntry);
-        setWorkdayStatus('WORKING_MORNING');
-        break;
+  const { workdayStatus, currentEntry } = useMemo(() => {
+    const todayEntries = timeEntries.filter(entry => isSameDay(new Date(entry.startTime), now));
+    const activeEntry = todayEntries.find(entry => !entry.endTime);
+
+    const completedEntriesCount = todayEntries.filter(e => e.endTime).length;
+    const totalEvents = completedEntriesCount * 2 + (activeEntry ? 1 : 0);
+    const cycleStep = totalEvents % 4;
+
+    let status: WorkdayStatus;
+
+    if (activeEntry) { // User is working
+      if (cycleStep === 1) { // Entrada
+        status = 'WORKING_MORNING';
+      } else { // Retorno (cycleStep === 3)
+        status = 'WORKING_AFTERNOON';
       }
-      case 'WORKING_MORNING': { // Action: Pausa
-        if (currentEntry) {
-          const updatedEntry = { ...currentEntry, endTime: actionTime };
-          setTimeEntries(prev => prev.map(e => (e.id === currentEntry.id ? updatedEntry : e)));
-          setCurrentEntry(null);
-          setWorkdayStatus('ON_BREAK');
+    } else { // User is not working
+      if (cycleStep === 0) {
+        if (totalEvents === 0) {
+          status = 'NOT_STARTED';
+        } else {
+          status = 'DAY_ENDED';
         }
-        break;
-      }
-      case 'ON_BREAK': { // Action: Retorno
-        const newEntry: TimeEntry = { id: crypto.randomUUID(), startTime: actionTime };
-        setTimeEntries(prev => [...prev, newEntry]);
-        setCurrentEntry(newEntry);
-        setWorkdayStatus('WORKING_AFTERNOON');
-        break;
-      }
-      case 'WORKING_AFTERNOON': { // Action: Saída
-        if (currentEntry) {
-          const updatedEntry = { ...currentEntry, endTime: actionTime };
-          setTimeEntries(prev => prev.map(e => (e.id === currentEntry.id ? updatedEntry : e)));
-          setCurrentEntry(null);
-          setWorkdayStatus('DAY_ENDED');
-        }
-        break;
+      } else { // Pausa (cycleStep === 2)
+        status = 'ON_BREAK';
       }
     }
-  }, [workdayStatus, currentEntry]);
+    
+    return { workdayStatus: status, currentEntry: activeEntry || null };
+  }, [timeEntries, now]);
+
+  const handleClockAction = useCallback(() => {
+    const actionTime = new Date().toISOString();
+    
+    const activeEntry = timeEntries
+      .filter(entry => isSameDay(new Date(entry.startTime), new Date()))
+      .find(entry => !entry.endTime);
+
+    if (activeEntry) {
+      const updatedEntry = { ...activeEntry, endTime: actionTime };
+      setTimeEntries(prev => prev.map(e => (e.id === activeEntry.id ? updatedEntry : e)));
+    } else {
+      const newEntry: TimeEntry = { id: crypto.randomUUID(), startTime: actionTime };
+      setTimeEntries(prev => [...prev, newEntry]);
+    }
+  }, [timeEntries]);
 
   const elapsedTime = useMemo(() => {
     if (currentEntry) {
@@ -278,11 +255,12 @@ export default function RegistroFacilPage() {
     if (!last) return { label: 'Nenhum registro hoje', time: null };
 
     const completedEntriesCount = todayEntries.filter(e => e.endTime).length;
+    const isStartingSession = last.isStart;
     
-    if (last.isStart) {
+    if (isStartingSession) {
       return { label: completedEntriesCount === 0 ? 'Entrada às' : 'Retorno às', time: last.time };
     } else {
-      return { label: completedEntriesCount === 1 ? 'Pausa às' : 'Saída às', time: last.time };
+      return { label: (completedEntriesCount % 2 !== 0) ? 'Pausa às' : 'Saída às', time: last.time };
     }
   }, [timeEntries, now]);
   
@@ -304,7 +282,7 @@ export default function RegistroFacilPage() {
         const events = [];
         events.push({
           id: `${entry.id}-start`,
-          label: workSessionIndex === 0 ? 'Entrada' : 'Retorno',
+          label: workSessionIndex === 0 ? 'Entrada' : `Retorno ${workSessionIndex}`,
           time: entry.startTime,
           entryId: entry.id,
           fieldToEdit: 'startTime' as const
@@ -313,7 +291,7 @@ export default function RegistroFacilPage() {
         if (entry.endTime) {
           events.push({
             id: `${entry.id}-end`,
-            label: workSessionIndex === 0 ? 'Pausa' : 'Saída',
+            label: workSessionIndex === 0 ? 'Pausa' : `Saída ${workSessionIndex}`,
             time: entry.endTime,
             entryId: entry.id,
             fieldToEdit: 'endTime' as const
@@ -327,7 +305,16 @@ export default function RegistroFacilPage() {
 
       return {
         day,
-        events: dayEvents,
+        events: dayEvents.map((event, index) => {
+          const isStart = index % 2 === 0;
+          if (dayEvents.length <= 4) {
+            if (index === 0) return {...event, label: 'Entrada'};
+            if (index === 1) return {...event, label: 'Pausa'};
+            if (index === 2) return {...event, label: 'Retorno'};
+            if (index === 3) return {...event, label: 'Saída'};
+          }
+          return event;
+        })
       };
     });
 
@@ -338,7 +325,9 @@ export default function RegistroFacilPage() {
     setTimeEntries(prevEntries => {
       const newEntries = prevEntries.map(entry => {
         if (entry.id === entryId) {
-          const originalDate = new Date(entry[field] || entry.startTime);
+          const originalDateString = entry[field] || entry.startTime;
+          const originalDate = startOfDay(new Date(originalDateString));
+
           const [hours, minutes] = newTimeValue.split(':').map(Number);
           
           const updatedDate = new Date(
@@ -347,8 +336,6 @@ export default function RegistroFacilPage() {
             originalDate.getDate(),
             hours,
             minutes,
-            originalDate.getSeconds(),
-            originalDate.getMilliseconds()
           );
 
           return { ...entry, [field]: updatedDate.toISOString() };
