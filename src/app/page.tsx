@@ -10,7 +10,6 @@ import {
   eachDayOfInterval,
   isWeekend,
   isBefore,
-  isAfter,
   startOfToday,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -21,6 +20,9 @@ import {
   Settings,
   LogIn,
   LogOut,
+  Coffee,
+  Play,
+  CheckCircle2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -45,6 +47,8 @@ type TimeEntry = {
   endTime?: string; // ISO string
 };
 
+type WorkdayStatus = 'NOT_STARTED' | 'WORKING_MORNING' | 'ON_BREAK' | 'WORKING_AFTERNOON' | 'DAY_ENDED';
+
 const WORK_HOURS_PER_DAY = 8;
 
 const formatDuration = (milliseconds: number) => {
@@ -57,8 +61,9 @@ const formatDuration = (milliseconds: number) => {
   )}m`;
 };
 
-const formatTime = (date: Date) => {
-  return format(date, "HH:mm");
+const formatTime = (date: Date | string) => {
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  return format(dateObj, "HH:mm");
 };
 
 export default function RegistroFacilPage() {
@@ -66,16 +71,35 @@ export default function RegistroFacilPage() {
   const [now, setNow] = useState(new Date());
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [currentEntry, setCurrentEntry] = useState<TimeEntry | null>(null);
+  const [workdayStatus, setWorkdayStatus] = useState<WorkdayStatus>('NOT_STARTED');
 
   useEffect(() => {
     setIsClient(true);
     const storedEntries = localStorage.getItem("timeEntries");
     if (storedEntries) {
       const parsedEntries: TimeEntry[] = JSON.parse(storedEntries);
-      setTimeEntries(parsedEntries);
-      const activeEntry = parsedEntries.find((entry) => !entry.endTime);
-      if (activeEntry) {
-        setCurrentEntry(activeEntry);
+      
+      const today = new Date();
+      const todayEntries = parsedEntries.filter(e => isSameDay(new Date(e.startTime), today));
+      
+      // Clear entries from previous days for simplicity
+      setTimeEntries(todayEntries);
+      
+      const todayActiveEntry = todayEntries.find(e => !e.endTime);
+      const todayCompletedEntries = todayEntries.filter(e => e.endTime);
+
+      if (todayCompletedEntries.length === 0 && !todayActiveEntry) {
+        setWorkdayStatus('NOT_STARTED');
+      } else if (todayCompletedEntries.length === 0 && todayActiveEntry) {
+        setWorkdayStatus('WORKING_MORNING');
+        setCurrentEntry(todayActiveEntry);
+      } else if (todayCompletedEntries.length === 1 && !todayActiveEntry) {
+        setWorkdayStatus('ON_BREAK');
+      } else if (todayCompletedEntries.length === 1 && todayActiveEntry) {
+        setWorkdayStatus('WORKING_AFTERNOON');
+        setCurrentEntry(todayActiveEntry);
+      } else if (todayCompletedEntries.length >= 2) {
+        setWorkdayStatus('DAY_ENDED');
       }
     }
   }, []);
@@ -90,6 +114,46 @@ export default function RegistroFacilPage() {
       localStorage.setItem("timeEntries", JSON.stringify(timeEntries));
     }
   }, [timeEntries, isClient]);
+  
+  const handleClockAction = useCallback(() => {
+    const actionTime = new Date().toISOString();
+    switch (workdayStatus) {
+      case 'NOT_STARTED': { // Action: Entrada
+        const newEntry: TimeEntry = { id: crypto.randomUUID(), startTime: actionTime };
+        setTimeEntries(prev => [...prev, newEntry]);
+        setCurrentEntry(newEntry);
+        setWorkdayStatus('WORKING_MORNING');
+        break;
+      }
+      case 'WORKING_MORNING': { // Action: Pausa
+        if (currentEntry) {
+          const updatedEntry = { ...currentEntry, endTime: actionTime };
+          setTimeEntries(prev => prev.map(e => (e.id === currentEntry.id ? updatedEntry : e)));
+          setCurrentEntry(null);
+          setWorkdayStatus('ON_BREAK');
+        }
+        break;
+      }
+      case 'ON_BREAK': { // Action: Retorno
+        const newEntry: TimeEntry = { id: crypto.randomUUID(), startTime: actionTime };
+        setTimeEntries(prev => [...prev, newEntry]);
+        setCurrentEntry(newEntry);
+        setWorkdayStatus('WORKING_AFTERNOON');
+        break;
+      }
+      case 'WORKING_AFTERNOON': { // Action: Saída
+        if (currentEntry) {
+          const updatedEntry = { ...currentEntry, endTime: actionTime };
+          setTimeEntries(prev => prev.map(e => (e.id === currentEntry.id ? updatedEntry : e)));
+          setCurrentEntry(null);
+          setWorkdayStatus('DAY_ENDED');
+        }
+        break;
+      }
+      case 'DAY_ENDED':
+        break;
+    }
+  }, [workdayStatus, currentEntry]);
 
   const elapsedTime = useMemo(() => {
     if (currentEntry) {
@@ -98,43 +162,19 @@ export default function RegistroFacilPage() {
     return 0;
   }, [now, currentEntry]);
 
-  const handleToggleClock = useCallback(() => {
-    if (currentEntry) {
-      // Clock Out
-      const updatedEntry = { ...currentEntry, endTime: new Date().toISOString() };
-      setTimeEntries((prev) =>
-        prev.map((e) => (e.id === currentEntry.id ? updatedEntry : e))
-      );
-      setCurrentEntry(null);
-    } else {
-      // Clock In
-      const newEntry: TimeEntry = {
-        id: crypto.randomUUID(),
-        startTime: new Date().toISOString(),
-      };
-      setCurrentEntry(newEntry);
-      setTimeEntries((prev) => [...prev, newEntry]);
-    }
-  }, [currentEntry]);
-
-  const completedEntries = useMemo(
-    () => timeEntries.filter((e) => e.endTime),
-    [timeEntries]
-  );
-  
   const dailyHours = useMemo(() => {
-    const todayEntries = completedEntries.filter((e) =>
-      isSameDay(new Date(e.startTime), now)
-    );
-    let total = todayEntries.reduce((total, entry) => {
-      if (!entry.endTime) return total;
-      return total + differenceInMilliseconds(new Date(entry.endTime), new Date(entry.startTime));
-    }, 0);
-    if (currentEntry && isSameDay(new Date(currentEntry.startTime), now)) {
-        total += elapsedTime;
+    let total = timeEntries
+      .filter(e => e.endTime && isSameDay(new Date(e.startTime), now))
+      .reduce((acc, entry) => {
+        return acc + differenceInMilliseconds(new Date(entry.endTime!), new Date(entry.startTime));
+      }, 0);
+    
+    if (currentEntry) {
+      total += differenceInMilliseconds(now, new Date(currentEntry.startTime));
     }
+    
     return total;
-  }, [completedEntries, now, currentEntry, elapsedTime]);
+  }, [timeEntries, now, currentEntry]);
 
   const progress = useMemo(() => {
     const totalMilliseconds = WORK_HOURS_PER_DAY * 60 * 60 * 1000;
@@ -142,59 +182,89 @@ export default function RegistroFacilPage() {
     return Math.min(100, (dailyHours / totalMilliseconds) * 100);
   }, [dailyHours]);
 
-  const lastEntryToday = useMemo(() => {
-    const todayCompletedEntries = completedEntries
-      .filter((e) => isSameDay(new Date(e.startTime), now) && e.endTime)
-      .sort((a,b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
-    return todayCompletedEntries[0];
-  }, [completedEntries, now]);
-
   const timeBank = useMemo(() => {
     const weekStart = startOfWeek(now, { weekStartsOn: 1 });
     const today = startOfToday();
-    
-    // Consider only days from the start of the week up to yesterday
     const daysInWeekSoFar = eachDayOfInterval({ start: weekStart, end: today });
-
+  
+    const storedEntries: TimeEntry[] = isClient ? JSON.parse(localStorage.getItem("timeEntries") || "[]") : [];
+  
     let workedMs = 0;
     let targetMs = 0;
-
+  
+    // Calculate for past days in the week
     daysInWeekSoFar.forEach(day => {
-        if (!isWeekend(day)) {
-            // Only add target hours for past workdays
-             if (isBefore(day, today)) {
-                targetMs += WORK_HOURS_PER_DAY * 60 * 60 * 1000;
-             }
+      if (!isWeekend(day) && isBefore(day, today)) {
+        targetMs += WORK_HOURS_PER_DAY * 60 * 60 * 1000;
+        const entriesOnDay = storedEntries.filter(e => isSameDay(new Date(e.startTime), day) && e.endTime);
+        const dailyTotal = entriesOnDay.reduce((total, entry) => {
+          return total + differenceInMilliseconds(new Date(entry.endTime!), new Date(entry.startTime));
+        }, 0);
+        workedMs += dailyTotal;
+      }
+    });
+  
+    // Add today's progress
+    const totalWorkedMs = workedMs + dailyHours;
+  
+    const bankMs = totalWorkedMs - targetMs;
+    const sign = bankMs >= 0 ? "+" : "-";
+    return `${sign}${formatDuration(Math.abs(bankMs))}`;
+  }, [dailyHours, now, isClient]);
 
-            const entriesOnDay = completedEntries.filter(e => isSameDay(new Date(e.startTime), day));
-            const dailyTotal = entriesOnDay.reduce((total, entry) => {
-                 if (!entry.endTime) return total;
-                 return total + differenceInMilliseconds(new Date(entry.endTime), new Date(entry.startTime));
-            }, 0);
-            workedMs += dailyTotal;
+  const lastEvent = useMemo(() => {
+    if (timeEntries.length === 0) return { label: 'Nenhum registro hoje', time: null };
+
+    const lastEntry = timeEntries[timeEntries.length - 1];
+
+    if (!lastEntry.endTime) { // Active entry
+        if (timeEntries.length === 1) return { label: 'Entrada às', time: lastEntry.startTime };
+        return { label: 'Retorno às', time: lastEntry.startTime };
+    } else { // Completed entry
+        if (timeEntries.length === 1) return { label: 'Pausa às', time: lastEntry.endTime };
+        return { label: 'Saída às', time: lastEntry.endTime };
+    }
+  }, [timeEntries]);
+  
+  const historyEvents = useMemo(() => {
+    const events: { label: string; time: string }[] = [];
+    const todayEntriesSorted = [...timeEntries].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+
+    todayEntriesSorted.forEach((entry, index) => {
+        if (index === 0) {
+            events.push({ label: 'Entrada', time: entry.startTime });
+            if (entry.endTime) events.push({ label: 'Pausa', time: entry.endTime });
+        } else if (index === 1) {
+            events.push({ label: 'Retorno', time: entry.startTime });
+            if (entry.endTime) events.push({ label: 'Saída', time: entry.endTime });
         }
     });
 
-    // Add today's progress to the total worked time
-    const currentDayWorkedMs = dailyHours;
-
-    const bankMs = (workedMs + currentDayWorkedMs) - targetMs;
-    
-    const sign = bankMs >= 0 ? "+" : "-";
-    return `${sign}${formatDuration(Math.abs(bankMs))}`;
-  }, [completedEntries, dailyHours, now]);
+    return events.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+  }, [timeEntries]);
   
-  const todayEntriesForHistory = useMemo(() => {
-    return timeEntries
-      .filter(e => isSameDay(new Date(e.startTime), now))
-      .sort((a,b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
-  }, [timeEntries, now]);
+  const buttonConfig = useMemo(() => {
+    switch (workdayStatus) {
+      case 'NOT_STARTED': return { text: ['Registrar', 'Entrada'], icon: LogIn, disabled: false };
+      case 'WORKING_MORNING': return { text: ['Registrar', 'Pausa'], icon: Coffee, disabled: false };
+      case 'ON_BREAK': return { text: ['Registrar', 'Retorno'], icon: Play, disabled: false };
+      case 'WORKING_AFTERNOON': return { text: ['Registrar', 'Saída'], icon: LogOut, disabled: false };
+      case 'DAY_ENDED': return { text: ['Expediente', 'Encerrado'], icon: CheckCircle2, disabled: true };
+    }
+  }, [workdayStatus]);
 
+  const statusLabel = useMemo(() => {
+    switch (workdayStatus) {
+      case 'NOT_STARTED': return 'Fora do expediente';
+      case 'WORKING_MORNING': return `Em expediente desde ${formatTime(currentEntry?.startTime || now)}`;
+      case 'ON_BREAK': return 'Em pausa';
+      case 'WORKING_AFTERNOON': return `Em expediente desde ${formatTime(currentEntry?.startTime || now)}`;
+      case 'DAY_ENDED': return 'Expediente encerrado';
+    }
+  }, [workdayStatus, currentEntry, now]);
 
   if (!isClient) {
-    return (
-      <div className="dark bg-background flex min-h-screen items-center justify-center" />
-    );
+    return <div className="dark bg-background flex min-h-screen items-center justify-center" />;
   }
 
   return (
@@ -208,7 +278,7 @@ export default function RegistroFacilPage() {
 
       <div className="flex items-center gap-2 text-lg text-muted-foreground">
         <Clock size={18} />
-        <span>{currentEntry ? `Em expediente desde ${formatTime(new Date(currentEntry.startTime))}` : "Fora do expediente"}</span>
+        <span>{statusLabel}</span>
       </div>
 
       <div className="w-full max-w-xs md:max-w-sm">
@@ -227,34 +297,26 @@ export default function RegistroFacilPage() {
       </div>
 
       <Button
-        onClick={handleToggleClock}
-        className="w-40 h-40 md:w-48 md:h-48 rounded-full flex flex-col items-center justify-center text-xl md:text-2xl font-bold shadow-lg bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-300 ease-in-out transform hover:scale-105"
+        onClick={handleClockAction}
+        disabled={buttonConfig.disabled}
+        className="w-40 h-40 md:w-48 md:h-48 rounded-full flex flex-col items-center justify-center text-xl md:text-2xl font-bold shadow-lg bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-300 ease-in-out transform hover:scale-105 disabled:bg-muted disabled:scale-100 disabled:cursor-not-allowed"
       >
-        {currentEntry ? (
-          <>
-            <LogOut className="mb-2" size={32} />
-            <span>Registrar</span>
-            <span className="text-base font-normal">Saída</span>
-          </>
-        ) : (
-          <>
-            <LogIn className="mb-2" size={32} />
-            <span>Registrar</span>
-            <span className="text-base font-normal">Entrada</span>
-          </>
-        )}
+        <buttonConfig.icon className="mb-2" size={32} />
+        <span>{buttonConfig.text[0]}</span>
+        <span className="text-base font-normal">{buttonConfig.text[1]}</span>
       </Button>
-       {currentEntry && (
+
+      {(workdayStatus === 'WORKING_MORNING' || workdayStatus === 'WORKING_AFTERNOON') && (
         <div className="text-4xl font-mono tracking-widest">
             {formatDuration(elapsedTime)}
         </div>
-       )}
+      )}
 
       <div className="flex justify-between items-center w-full max-w-xs md:max-w-sm p-4 bg-muted/50 rounded-lg">
         <div>
           <p className="text-sm text-muted-foreground">Último registro</p>
           <p className="text-lg font-semibold text-white">
-            {lastEntryToday && lastEntryToday.endTime ? `Saída às ${formatTime(new Date(lastEntryToday.endTime!))}` : "Nenhum registro hoje"}
+            {lastEvent.time ? `${lastEvent.label} ${formatTime(lastEvent.time)}` : lastEvent.label}
           </p>
         </div>
         <Clock size={24} className="text-muted-foreground" />
@@ -288,21 +350,19 @@ export default function RegistroFacilPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Entrada</TableHead>
-                    <TableHead>Saída</TableHead>
-                    <TableHead className="text-right">Duração</TableHead>
+                    <TableHead>Evento</TableHead>
+                    <TableHead className="text-right">Horário</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {todayEntriesForHistory.length > 0 ? todayEntriesForHistory.map(entry => (
-                    <TableRow key={entry.id}>
-                      <TableCell>{format(new Date(entry.startTime), 'HH:mm:ss')}</TableCell>
-                      <TableCell>{entry.endTime ? format(new Date(entry.endTime), 'HH:mm:ss') : 'Em andamento'}</TableCell>
-                      <TableCell className="text-right">{entry.endTime ? formatDuration(differenceInMilliseconds(new Date(entry.endTime), new Date(entry.startTime))) : '-'}</TableCell>
+                  {historyEvents.length > 0 ? historyEvents.map(event => (
+                    <TableRow key={event.label}>
+                      <TableCell>{event.label}</TableCell>
+                      <TableCell className="text-right">{format(new Date(event.time), 'HH:mm:ss')}</TableCell>
                     </TableRow>
                   )) : (
                     <TableRow>
-                       <TableCell colSpan={3} className="text-center">Nenhum registro hoje.</TableCell>
+                       <TableCell colSpan={2} className="text-center">Nenhum registro hoje.</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
