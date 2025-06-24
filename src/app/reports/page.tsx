@@ -337,51 +337,39 @@ export default function ReportsPage() {
                         Registros por Dia
                     </h2>
                     <Card>
-                        <CardContent className="flex flex-col md:flex-row p-2 md:p-4 gap-4">
+                       <CardContent className="flex flex-col md:flex-row p-2 md:p-4 gap-4">
                             <div className="md:w-auto">
-                              <Calendar
-                                  mode="single"
-                                  selected={selectedDay}
-                                  onSelect={setSelectedDay}
-                                  month={month}
-                                  onMonthChange={setMonth}
-                                  locale={ptBR}
-                                  className="p-0"
-                                  classNames={{
-                                      cell: "text-center text-sm p-0 relative focus-within:relative focus-within:z-20",
-                                      day: "h-14 md:h-16 w-full p-1 font-normal",
-                                  }}
-                                  components={{
-                                      Day: ({ date, displayMonth }) => {
-                                          const dayKey = format(date, 'yyyy-MM-dd');
-                                          const totalMillis = dailyTotals[dayKey];
-                                          const isCurrentMonth = date.getMonth() === displayMonth.getMonth();
-                                          const isToday = isSameDay(date, new Date());
-                                          const isSelected = selectedDay ? isSameDay(date, selectedDay) : false;
+                                <Calendar
+                                    mode="single"
+                                    selected={selectedDay}
+                                    onSelect={setSelectedDay}
+                                    month={month}
+                                    onMonthChange={setMonth}
+                                    locale={ptBR}
+                                    className="p-0"
+                                    classNames={{
+                                        cell: "text-center text-sm p-0 relative focus-within:relative focus-within:z-20",
+                                        day: "h-14 md:h-16 w-full p-1 font-normal flex flex-col items-center justify-center rounded-md relative group",
+                                    }}
+                                    components={{
+                                        DayContent: ({ date, displayMonth }) => {
+                                            const dayKey = format(date, 'yyyy-MM-dd');
+                                            const totalMillis = dailyTotals[dayKey];
+                                            const isCurrentMonth = date.getMonth() === displayMonth.getMonth();
 
-                                          return (
-                                              <div className={cn(
-                                                  "flex flex-col h-full w-full items-center justify-start rounded-md p-2 transition-colors",
-                                                  isToday && !isSelected && "bg-accent",
-                                                  isSelected && "bg-primary text-primary-foreground",
-                                                  !isCurrentMonth && "text-muted-foreground opacity-50"
-                                              )}>
-                                                  <div className={cn("font-medium")}>
-                                                      {format(date, 'd')}
-                                                  </div>
-                                                  {totalMillis > 0 && isCurrentMonth && (
-                                                      <div className={cn(
-                                                        "text-xs font-bold mt-1",
-                                                        isSelected ? "text-primary-foreground/90" : "text-primary"
-                                                      )}>
-                                                          {formatTotalDuration(totalMillis).replace('m', '').replace('h', ':')}
-                                                      </div>
-                                                  )}
-                                              </div>
-                                          );
-                                      }
-                                  }}
-                              />
+                                            return (
+                                                <>
+                                                    <span>{format(date, 'd')}</span>
+                                                    {totalMillis > 0 && isCurrentMonth && (
+                                                        <span className="text-xs font-bold mt-1 text-primary group-data-[selected]:text-primary-foreground/90">
+                                                            {formatTotalDuration(totalMillis).replace('m', '').replace('h', ':')}
+                                                        </span>
+                                                    )}
+                                                </>
+                                            );
+                                        }
+                                    }}
+                                />
                             </div>
                             <Separator orientation="vertical" className="mx-2 hidden md:block" />
                             <div className="flex-1 md:min-w-[280px] p-2 md:p-0">
