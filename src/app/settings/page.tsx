@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect, useMemo } from 'react';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 import { ArrowLeft, Briefcase, Clock, Bell, Info, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,6 +54,8 @@ const dayFullNames: { [key in keyof Workdays]: string } = {
 export default function SettingsPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [weeklyHours, setWeeklyHours] = useState<string | number>(40);
   const [initialWeeklyHours, setInitialWeeklyHours] = useState<string | number>(40);
@@ -61,38 +65,49 @@ export default function SettingsPage() {
   const [enableReminders, setEnableReminders] = useState(true);
 
   useEffect(() => {
-    const isLoggedIn = localStorage.getItem('isLoggedIn');
-    if (isLoggedIn !== 'true') {
-        router.replace('/login');
-    } else {
-        const fetchInitialSettings = async () => {
-          const settings = await getSettings();
-          if (settings) {
-            const hours = settings.weeklyHours || 40;
-            setWeeklyHours(hours);
-            setInitialWeeklyHours(hours);
-            const savedWorkdays = settings.workdays || defaultWorkdays;
-            setWorkdays(savedWorkdays);
-            setInitialWorkdays(savedWorkdays);
-          }
-          setIsLoading(false);
-        };
-        fetchInitialSettings();
-    }
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+        if (currentUser) {
+            setUser(currentUser);
+        } else {
+            router.replace('/login');
+        }
+        setAuthLoading(false);
+    });
+    return () => unsubscribe();
   }, [router]);
+
+  useEffect(() => {
+    if (!user) return;
+    
+    const fetchInitialSettings = async () => {
+      setIsLoading(true);
+      const settings = await getSettings(user.uid);
+      if (settings) {
+        const hours = settings.weeklyHours || 40;
+        setWeeklyHours(hours);
+        setInitialWeeklyHours(hours);
+        const savedWorkdays = settings.workdays || defaultWorkdays;
+        setWorkdays(savedWorkdays);
+        setInitialWorkdays(savedWorkdays);
+      }
+      setIsLoading(false);
+    };
+    fetchInitialSettings();
+  }, [user]);
   
   const handleToggleDay = (day: keyof Workdays) => {
     setWorkdays(prev => ({ ...prev, [day]: !prev[day] }));
   };
 
   const handleSave = async () => {
+    if (!user) return;
     const newSettings: AppSettings = {
       weeklyHours: Number(weeklyHours),
       workdays,
     };
 
     try {
-      await saveSettings(newSettings);
+      await saveSettings(user.uid, newSettings);
       setInitialWeeklyHours(Number(weeklyHours));
       setInitialWorkdays(workdays);
       toast({
@@ -139,7 +154,7 @@ export default function SettingsPage() {
     return `${hours}h${String(minutes).padStart(2, '0')}m por dia (${selectedDays})`;
   }, [weeklyHours, workdays]);
   
-  if (isLoading) {
+  if (authLoading || isLoading) {
       return <div className="dark bg-background flex min-h-screen items-center justify-center"><Clock className="animate-spin h-10 w-10 text-primary" /></div>;
   }
 
@@ -278,7 +293,7 @@ export default function SettingsPage() {
       <footer className="text-center p-6 mt-auto">
         <Separator className="mb-6 max-w-xs mx-auto" />
         <p className="font-semibold text-sm">Registro Fácil</p>
-        <p className="text-xs text-muted-foreground">Versão 1.1.0</p>
+        <p className="text-xs text-muted-foreground">Versão 1.2.0</p>
       </footer>
     </div>
   );

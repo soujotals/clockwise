@@ -7,9 +7,11 @@ export type TimeEntry = {
   endTime?: string; // ISO string
 };
 
-const timeEntriesCollection = collection(db, 'timeEntries');
+const getTimeEntriesCollection = (userId: string) => collection(db, `users/${userId}/timeEntries`);
 
-export const getTimeEntries = async (): Promise<TimeEntry[]> => {
+export const getTimeEntries = async (userId: string): Promise<TimeEntry[]> => {
+  if (!userId) return [];
+  const timeEntriesCollection = getTimeEntriesCollection(userId);
   const q = query(timeEntriesCollection, orderBy('startTime', 'asc'));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => {
@@ -22,18 +24,22 @@ export const getTimeEntries = async (): Promise<TimeEntry[]> => {
   });
 };
 
-export const addTimeEntry = async (entry: Omit<TimeEntry, 'id'>): Promise<TimeEntry> => {
+export const addTimeEntry = async (userId: string, entry: Omit<TimeEntry, 'id'>): Promise<TimeEntry> => {
+  if (!userId) throw new Error("User not authenticated");
+  const timeEntriesCollection = getTimeEntriesCollection(userId);
   const docRef = await addDoc(timeEntriesCollection, entry);
   return { ...entry, id: docRef.id };
 };
 
-export const updateTimeEntry = async (entry: TimeEntry): Promise<void> => {
-  const docRef = doc(db, 'timeEntries', entry.id);
+export const updateTimeEntry = async (userId: string, entry: TimeEntry): Promise<void> => {
+  if (!userId) throw new Error("User not authenticated");
+  const docRef = doc(db, `users/${userId}/timeEntries`, entry.id);
   const { id, ...data } = entry;
   await setDoc(docRef, data);
 };
 
-export const deleteTimeEntry = async (entryId: string): Promise<void> => {
-  const docRef = doc(db, 'timeEntries', entryId);
+export const deleteTimeEntry = async (userId: string, entryId: string): Promise<void> => {
+  if (!userId) throw new Error("User not authenticated");
+  const docRef = doc(db, `users/${userId}/timeEntries`, entryId);
   await deleteDoc(docRef);
 };

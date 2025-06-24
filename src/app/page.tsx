@@ -3,6 +3,8 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { onAuthStateChanged, signOut, User } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 import {
   format,
   differenceInMilliseconds,
@@ -12,7 +14,6 @@ import {
   startOfToday,
   startOfDay,
   parse,
-  parseISO,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -80,6 +81,8 @@ const formatTime = (date: Date | string) => {
 export default function RegistroFacilPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [now, setNow] = useState(new Date());
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
@@ -88,44 +91,54 @@ export default function RegistroFacilPage() {
   const [workdays, setWorkdays] = useState<Workdays>(defaultWorkdays);
 
   useEffect(() => {
-    const isLoggedIn = localStorage.getItem('isLoggedIn');
-    if (isLoggedIn !== 'true') {
-      router.replace('/login');
-    } else {
-      const fetchData = async () => {
-        try {
-          const [entries, settings] = await Promise.all([
-            getTimeEntries(),
-            getSettings(),
-          ]);
-          
-          setTimeEntries(entries);
-          
-          if (settings) {
-            const savedWorkdays = settings.workdays || defaultWorkdays;
-            setWorkdays(savedWorkdays);
-            const numberOfWorkDays = Object.values(savedWorkdays).filter(Boolean).length;
-            if (numberOfWorkDays > 0) {
-              setWorkHoursPerDay((settings.weeklyHours || 40) / numberOfWorkDays);
-            } else {
-              setWorkHoursPerDay(0);
-            }
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (currentUser) {
+        setUser(currentUser);
+      } else {
+        router.replace('/login');
+      }
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, [router]);
+  
+  useEffect(() => {
+    if (!user) return;
+    
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        const [entries, settings] = await Promise.all([
+          getTimeEntries(user.uid),
+          getSettings(user.uid),
+        ]);
+        
+        setTimeEntries(entries);
+        
+        if (settings) {
+          const savedWorkdays = settings.workdays || defaultWorkdays;
+          setWorkdays(savedWorkdays);
+          const numberOfWorkDays = Object.values(savedWorkdays).filter(Boolean).length;
+          if (numberOfWorkDays > 0) {
+            setWorkHoursPerDay((settings.weeklyHours || 40) / numberOfWorkDays);
+          } else {
+            setWorkHoursPerDay(0);
           }
-        } catch (error) {
-          console.error("Failed to fetch data:", error);
-          toast({
-            title: "Erro de conexão",
-            description: "Não foi possível carregar os dados. Verifique a sua conexão e as configurações do Firebase.",
-            variant: "destructive",
-          });
-        } finally {
-          setIsLoading(false);
         }
-      };
-      
-      fetchData();
-    }
-  }, [router, toast]);
+      } catch (error) {
+        console.error("Failed to fetch data:", error);
+        toast({
+          title: "Erro de conexão",
+          description: "Não foi possível carregar os dados. Verifique a sua conexão e as configurações do Firebase.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchData();
+  }, [user, toast]);
   
   useEffect(() => {
     if (isLoading) return;
@@ -161,6 +174,7 @@ export default function RegistroFacilPage() {
   }, [timeEntries, now]);
 
   const handleClockAction = useCallback(async () => {
+    if (!user) return;
     const actionTime = new Date().toISOString();
     
     const activeEntry = timeEntries
@@ -170,11 +184,11 @@ export default function RegistroFacilPage() {
     try {
       if (activeEntry) {
         const updatedEntry = { ...activeEntry, endTime: actionTime };
-        await updateTimeEntry(updatedEntry);
+        await updateTimeEntry(user.uid, updatedEntry);
         setTimeEntries(prev => prev.map(e => (e.id === activeEntry.id ? updatedEntry : e)));
       } else {
         const newEntryData = { startTime: actionTime };
-        const savedEntry = await addTimeEntry(newEntryData);
+        const savedEntry = await addTimeEntry(user.uid, newEntryData);
         setTimeEntries(prev => [...prev, savedEntry]);
       }
     } catch(error) {
@@ -185,7 +199,7 @@ export default function RegistroFacilPage() {
         variant: "destructive",
       });
     }
-  }, [timeEntries, toast]);
+  }, [timeEntries, toast, user]);
 
   const elapsedTime = useMemo(() => {
     if (currentEntry) {
@@ -292,7 +306,7 @@ export default function RegistroFacilPage() {
   
   const generalHistory = useMemo(() => {
     const entriesByDay = timeEntries.reduce((acc, entry) => {
-      const entryDate = parseISO(entry.startTime);
+      const entryDate = new Date(entry.startTime);
       const dayKey = format(startOfDay(entryDate), 'yyyy-MM-dd');
       if (!acc[dayKey]) {
         acc[dayKey] = [];
@@ -346,6 +360,7 @@ export default function RegistroFacilPage() {
   }, [timeEntries]);
 
   const handleUpdateTime = async (entryId: string, field: 'startTime' | 'endTime', newTimeValue: string) => {
+    if (!user) return;
     const entryToUpdate = timeEntries.find(e => e.id === entryId);
     if (!entryToUpdate) return;
 
@@ -367,7 +382,7 @@ export default function RegistroFacilPage() {
 
       const updatedEntry = { ...entryToUpdate, [field]: updatedDate.toISOString() };
 
-      await updateTimeEntry(updatedEntry);
+      await updateTimeEntry(user.uid, updatedEntry);
 
       setTimeEntries(prevEntries => prevEntries.map(e => (e.id === entryId ? updatedEntry : e)));
     } catch (error) {
@@ -383,8 +398,9 @@ export default function RegistroFacilPage() {
   };
   
   const handleDeleteEntry = async (entryId: string) => {
+    if (!user) return;
     try {
-      await deleteTimeEntry(entryId);
+      await deleteTimeEntry(user.uid, entryId);
       setTimeEntries(prevEntries => prevEntries.filter(entry => entry.id !== entryId));
       toast({
         title: "Registro Excluído",
@@ -428,12 +444,21 @@ export default function RegistroFacilPage() {
     }
   }, [workdayStatus, currentEntry, now, lastEvent]);
   
-  const handleLogout = () => {
-    localStorage.removeItem('isLoggedIn');
-    router.push('/login');
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      router.push('/login');
+    } catch (error) {
+      console.error("Failed to sign out:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível sair. Tente novamente.",
+        variant: "destructive",
+      });
+    }
   };
 
-  if (isLoading) {
+  if (authLoading || isLoading) {
     return <div className="dark bg-background flex min-h-screen items-center justify-center"><Clock className="animate-spin h-10 w-10 text-primary" /></div>;
   }
 

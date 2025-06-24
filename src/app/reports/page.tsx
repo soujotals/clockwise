@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect, useMemo } from 'react';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 import { ArrowLeft, Clock, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -45,6 +47,8 @@ const formatDuration = (milliseconds: number) => {
 
 export default function ReportsPage() {
     const router = useRouter();
+    const [user, setUser] = useState<User | null>(null);
+    const [authLoading, setAuthLoading] = useState(true);
     const [isLoading, setIsLoading] = useState(true);
     const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
     const [workHoursPerDay, setWorkHoursPerDay] = useState(8);
@@ -52,31 +56,41 @@ export default function ReportsPage() {
     const [now, setNow] = useState(new Date());
 
     useEffect(() => {
-        const isLoggedIn = localStorage.getItem('isLoggedIn');
-        if (isLoggedIn !== 'true') {
-            router.replace('/login');
-        } else {
-            const fetchData = async () => {
-                const [entries, settings] = await Promise.all([
-                    getTimeEntries(),
-                    getSettings()
-                ]);
-                setTimeEntries(entries);
-                if (settings) {
-                    const savedWorkdays = settings.workdays || defaultWorkdays;
-                    setWorkdays(savedWorkdays);
-                    const numberOfWorkDays = Object.values(savedWorkdays).filter(Boolean).length;
-                    if (numberOfWorkDays > 0) {
-                        setWorkHoursPerDay((settings.weeklyHours || 40) / numberOfWorkDays);
-                    } else {
-                        setWorkHoursPerDay(0);
-                    }
-                }
-                setIsLoading(false);
-            };
-            fetchData();
-        }
+        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+            if (currentUser) {
+                setUser(currentUser);
+            } else {
+                router.replace('/login');
+            }
+            setAuthLoading(false);
+        });
+        return () => unsubscribe();
     }, [router]);
+
+    useEffect(() => {
+        if (!user) return;
+        
+        const fetchData = async () => {
+            setIsLoading(true);
+            const [entries, settings] = await Promise.all([
+                getTimeEntries(user.uid),
+                getSettings(user.uid)
+            ]);
+            setTimeEntries(entries);
+            if (settings) {
+                const savedWorkdays = settings.workdays || defaultWorkdays;
+                setWorkdays(savedWorkdays);
+                const numberOfWorkDays = Object.values(savedWorkdays).filter(Boolean).length;
+                if (numberOfWorkDays > 0) {
+                    setWorkHoursPerDay((settings.weeklyHours || 40) / numberOfWorkDays);
+                } else {
+                    setWorkHoursPerDay(0);
+                }
+            }
+            setIsLoading(false);
+        };
+        fetchData();
+    }, [user]);
     
     useEffect(() => {
         if (isLoading) return;
@@ -146,7 +160,7 @@ export default function ReportsPage() {
         return formatDuration(bankMs);
     }, [now, timeEntries, workHoursPerDay, workdays]);
     
-    if (isLoading) {
+    if (authLoading || isLoading) {
         return <div className="dark bg-background flex min-h-screen items-center justify-center"><Clock className="animate-spin h-10 w-10 text-primary" /></div>;
     }
 

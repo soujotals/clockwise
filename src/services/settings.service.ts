@@ -16,9 +16,11 @@ export type AppSettings = {
   workdays: Workdays;
 };
 
-const settingsDocRef = doc(db, 'settings', 'userSettings');
+const getSettingsDocRef = (userId: string) => doc(db, `users/${userId}/settings`, 'userSettings');
 
-export const getSettings = async (): Promise<AppSettings | null> => {
+export const getSettings = async (userId: string): Promise<AppSettings | null> => {
+  if (!userId) return null;
+  const settingsDocRef = getSettingsDocRef(userId);
   const docSnap = await getDoc(settingsDocRef);
   if (docSnap.exists()) {
     return docSnap.data() as AppSettings;
@@ -26,6 +28,8 @@ export const getSettings = async (): Promise<AppSettings | null> => {
   return null;
 };
 
-export const saveSettings = async (settings: AppSettings): Promise<void> => {
+export const saveSettings = async (userId: string, settings: AppSettings): Promise<void> => {
+  if (!userId) throw new Error("User not authenticated");
+  const settingsDocRef = getSettingsDocRef(userId);
   await setDoc(settingsDocRef, settings);
 };
