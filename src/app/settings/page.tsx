@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
-import { ArrowLeft, Briefcase, Clock, Bell, Info } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ArrowLeft, Briefcase, Clock, Bell, Info, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -14,11 +14,44 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Separator } from '@/components/ui/separator';
+import { useToast } from "@/hooks/use-toast";
 
 export default function SettingsPage() {
+  const { toast } = useToast();
+  const [weeklyHours, setWeeklyHours] = useState<string | number>(40);
+  const [initialWeeklyHours, setInitialWeeklyHours] = useState<string | number>(40);
   const [isCustomDistribution, setIsCustomDistribution] = useState(false);
   const [is24hFormat, setIs24hFormat] = useState(true);
   const [enableReminders, setEnableReminders] = useState(true);
+
+  useEffect(() => {
+    const savedSettingsRaw = localStorage.getItem('appSettings');
+    if (savedSettingsRaw) {
+      const settings = JSON.parse(savedSettingsRaw);
+      const hours = settings.weeklyHours || 40;
+      setWeeklyHours(hours);
+      setInitialWeeklyHours(hours);
+    }
+  }, []);
+  
+  const handleSave = () => {
+    const savedSettingsRaw = localStorage.getItem('appSettings');
+    const savedSettings = savedSettingsRaw ? JSON.parse(savedSettingsRaw) : {};
+    
+    const newSettings = {
+      ...savedSettings,
+      weeklyHours: Number(weeklyHours),
+    };
+
+    localStorage.setItem('appSettings', JSON.stringify(newSettings));
+    setInitialWeeklyHours(Number(weeklyHours));
+    toast({
+      title: "Configuração Salva",
+      description: "Sua carga horária semanal foi atualizada.",
+    });
+  };
+
+  const weeklyHoursChanged = Number(weeklyHours) !== Number(initialWeeklyHours);
 
   return (
     <div className="bg-background text-foreground min-h-screen flex flex-col">
@@ -57,9 +90,22 @@ export default function SettingsPage() {
                         </Tooltip>
                     </TooltipProvider>
                 </div>
-                <div className="flex items-center gap-2">
-                    <Input id="weekly-hours" type="number" defaultValue="40" className="w-24 bg-input border-border" />
-                    <span>horas</span>
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="weekly-hours"
+                        type="number"
+                        value={weeklyHours}
+                        onChange={(e) => setWeeklyHours(e.target.value)}
+                        className="w-24 bg-input border-border" />
+                      <span>horas</span>
+                    </div>
+                    {weeklyHoursChanged && (
+                      <Button onClick={handleSave} size="sm">
+                        <Save className="mr-2 h-4 w-4" />
+                        Salvar
+                      </Button>
+                    )}
                 </div>
                  <p className="text-xs text-muted-foreground mt-1">Exemplo: 40h, 44h, 30h - conforme seu contrato de trabalho</p>
             </div>

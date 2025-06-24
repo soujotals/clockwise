@@ -52,8 +52,6 @@ type TimeEntry = {
 
 type WorkdayStatus = 'NOT_STARTED' | 'WORKING_MORNING' | 'ON_BREAK' | 'WORKING_AFTERNOON' | 'DAY_ENDED';
 
-const WORK_HOURS_PER_DAY = 8;
-
 const formatDuration = (milliseconds: number) => {
   if (milliseconds < 0) milliseconds = 0;
   const hours = Math.floor(milliseconds / 3600000);
@@ -76,9 +74,18 @@ export default function RegistroFacilPage() {
   const [currentEntry, setCurrentEntry] = useState<TimeEntry | null>(null);
   const [workdayStatus, setWorkdayStatus] = useState<WorkdayStatus>('NOT_STARTED');
   const [editingEvent, setEditingEvent] = useState<{ id: string } | null>(null);
+  const [workHoursPerDay, setWorkHoursPerDay] = useState(8);
 
   useEffect(() => {
     setIsClient(true);
+    
+    const storedSettings = localStorage.getItem('appSettings');
+    if (storedSettings) {
+        const settings = JSON.parse(storedSettings);
+        // Assuming 5-day work week for automatic distribution
+        setWorkHoursPerDay((settings.weeklyHours || 40) / 5);
+    }
+
     const storedEntries = localStorage.getItem("timeEntries");
     if (storedEntries) {
       const parsedEntries: TimeEntry[] = JSON.parse(storedEntries);
@@ -179,10 +186,10 @@ export default function RegistroFacilPage() {
   }, [timeEntries, now, currentEntry]);
 
   const progress = useMemo(() => {
-    const totalMilliseconds = WORK_HOURS_PER_DAY * 60 * 60 * 1000;
+    const totalMilliseconds = workHoursPerDay * 60 * 60 * 1000;
     if (totalMilliseconds === 0) return 0;
     return Math.min(100, (dailyHours / totalMilliseconds) * 100);
-  }, [dailyHours]);
+  }, [dailyHours, workHoursPerDay]);
 
   const timeBank = useMemo(() => {
     const weekStart = startOfWeek(now, { weekStartsOn: 1 });
@@ -198,7 +205,7 @@ export default function RegistroFacilPage() {
     // Calculate for past days in the week
     daysInWeekSoFar.forEach(day => {
       if (!isWeekend(day) && isBefore(day, today)) {
-        targetMs += WORK_HOURS_PER_DAY * 60 * 60 * 1000;
+        targetMs += workHoursPerDay * 60 * 60 * 1000;
         const entriesOnDay = storedEntries.filter(e => isSameDay(new Date(e.startTime), day) && e.endTime);
         const dailyTotal = entriesOnDay.reduce((total, entry) => {
           return total + differenceInMilliseconds(new Date(entry.endTime!), new Date(entry.startTime));
@@ -213,7 +220,7 @@ export default function RegistroFacilPage() {
     const bankMs = totalWorkedMs - targetMs;
     const sign = bankMs >= 0 ? "+" : "-";
     return `${sign}${formatDuration(Math.abs(bankMs))}`;
-  }, [dailyHours, now, timeEntries]);
+  }, [dailyHours, now, timeEntries, workHoursPerDay]);
 
   const lastEvent = useMemo(() => {
     const todayEntries = timeEntries.filter(e => isSameDay(new Date(e.startTime), now));
@@ -341,7 +348,7 @@ export default function RegistroFacilPage() {
             <TrendingUp size={18} className="text-primary" /> Progresso do dia
           </span>
           <span className="text-muted-foreground">
-            {formatDuration(dailyHours)} / {WORK_HOURS_PER_DAY}h
+            {formatDuration(dailyHours)} / {workHoursPerDay}h
           </span>
         </div>
         <Progress value={progress} className="h-2" />
