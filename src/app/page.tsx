@@ -116,7 +116,28 @@ export default function RegistroFacilPage() {
     const storedEntries = localStorage.getItem("timeEntries");
     if (storedEntries) {
       const parsedEntries: TimeEntry[] = JSON.parse(storedEntries);
-      setTimeEntries(parsedEntries);
+      const cleanedEntries = parsedEntries.map(entry => {
+        const startDate = new Date(entry.startTime);
+        if (isNaN(startDate.getTime())) {
+          return null; // Invalid entry
+        }
+        
+        const cleanedEntry: TimeEntry = {
+          id: entry.id,
+          startTime: startDate.toISOString()
+        };
+        
+        if (entry.endTime) {
+          const endDate = new Date(entry.endTime);
+          if (!isNaN(endDate.getTime())) {
+            cleanedEntry.endTime = endDate.toISOString();
+          }
+        }
+        
+        return cleanedEntry;
+      }).filter((e): e is TimeEntry => e !== null);
+
+      setTimeEntries(cleanedEntries);
     }
   }, []);
 
@@ -226,6 +247,10 @@ export default function RegistroFacilPage() {
       }
     });
   
+    if (isConfiguredWorkday(today)) {
+        targetMs += workHoursPerDay * 60 * 60 * 1000;
+    }
+  
     const totalWorkedMs = workedMs + dailyHours;
   
     const bankMs = totalWorkedMs - targetMs;
@@ -257,7 +282,7 @@ export default function RegistroFacilPage() {
       if (cycleStep === 1) return { label: 'Pausa às', time: last.time };
       if (cycleStep === 3) return { label: 'Saída às', time: last.time };
     }
-    const label = (allEvents.length % 2 !== 0) ? 'Entrada às' : 'Saída às'
+    const label = (allEvents.length % 2 !== 0) ? `Entrada ${Math.ceil(allEvents.length / 2)} às` : `Saída ${Math.ceil(allEvents.length / 2)} às`
     return { label, time: last.time };
   }, [timeEntries, now]);
   
@@ -347,16 +372,19 @@ export default function RegistroFacilPage() {
   
   const buttonConfig = useMemo(() => {
       const nextActionIndex = todayEventsCount % 4;
+
       if (workdayStatus === 'WORKING') {
         if (nextActionIndex === 1) return { text: ['Registrar', 'Pausa'], icon: Coffee, disabled: false };
         if (nextActionIndex === 3) return { text: ['Registrar', 'Saída'], icon: LogOut, disabled: false };
+        // Fallback for subsequent cycles (e.g., 5th event is a pause)
+        if (nextActionIndex % 2 === 1) return { text: ['Registrar', 'Saída'], icon: LogOut, disabled: false};
       }
+      
       if (nextActionIndex === 0) return { text: ['Registrar', 'Entrada'], icon: LogIn, disabled: false };
       if (nextActionIndex === 2) return { text: ['Registrar', 'Retorno'], icon: Play, disabled: false };
 
       // Fallback for subsequent cycles
-      const isStarting = todayEventsCount % 2 === 0;
-      if (isStarting) return { text: ['Registrar', 'Entrada'], icon: LogIn, disabled: false };
+      if (todayEventsCount % 2 === 0) return { text: ['Registrar', 'Entrada'], icon: LogIn, disabled: false };
       return { text: ['Registrar', 'Saída'], icon: LogOut, disabled: false };
       
   }, [workdayStatus, todayEventsCount]);
@@ -379,7 +407,7 @@ export default function RegistroFacilPage() {
     <main className="bg-background text-foreground flex flex-col items-center min-h-screen p-4 font-sans">
       <div className="w-full max-w-md mx-auto flex flex-col items-center justify-center flex-grow space-y-6 text-center">
         <div className="text-center">
-          <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight">Registro Fácil</h1>
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight">Registro Fácil</h1>
           <p className="text-muted-foreground capitalize mt-1">
             {format(now, "eeee, dd/MM/yyyy", { locale: ptBR })}
           </p>
@@ -396,7 +424,7 @@ export default function RegistroFacilPage() {
               <TrendingUp size={18} className="text-primary" /> Progresso do dia
             </span>
             <span className="text-muted-foreground font-mono">
-              {formatDuration(dailyHours)} / {workHoursPerDay > 0 ? `${formatDuration(workHoursPerDay * 3600000)}` : '0h'}
+              {formatDuration(dailyHours)} / {workHoursPerDay > 0 ? `${formatDuration(workHoursPerDay * 3600000)}` : 'N/A'}
             </span>
           </div>
           <Progress value={progress} className="h-2" />
@@ -416,37 +444,37 @@ export default function RegistroFacilPage() {
         </Button>
 
         {workdayStatus === 'WORKING' && (
-          <div className="text-5xl font-mono tracking-widest text-white/90">
+          <div className="text-5xl font-mono tracking-widest">
               {formatDuration(elapsedTime)}
           </div>
         )}
         
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
-          <Card className="w-full bg-muted/30">
+          <Card className="w-full bg-card">
             <CardContent className="p-4 flex justify-between items-center">
               <div>
                 <p className="text-sm text-muted-foreground">Último registro</p>
-                <p className="text-lg font-semibold text-white">
+                <p className="text-lg font-semibold">
                   {lastEvent.time ? `${lastEvent.label.replace(' às', '')} ${formatTime(lastEvent.time)}` : lastEvent.label}
                 </p>
               </div>
               <Clock size={24} className="text-muted-foreground" />
             </CardContent>
           </Card>
-          <Card className="w-full bg-muted/30">
+          <Card className="w-full bg-card">
             <CardContent className="p-4 flex justify-between items-center">
               <div>
                 <p className="text-sm text-muted-foreground">Banco de horas</p>
-                <p className="text-lg font-semibold text-accent">
+                <p className={`text-lg font-semibold ${timeBank.startsWith('+') ? 'text-primary' : 'text-destructive'}`}>
                   {timeBank}
                 </p>
               </div>
-              <TrendingUp size={24} className="text-accent" />
+              <TrendingUp size={24} className={`${timeBank.startsWith('+') ? 'text-primary' : 'text-destructive'}`} />
             </CardContent>
           </Card>
         </div>
 
-        <div className="flex gap-4 pt-4">
+        <div className="flex flex-wrap justify-center gap-4 pt-4">
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="outline">
@@ -478,7 +506,7 @@ export default function RegistroFacilPage() {
                             }, 0);
 
                             return (
-                                <Card key={day} className="bg-muted/40">
+                                <Card key={day} className="bg-muted/30">
                                     <CardHeader className="flex flex-row items-center justify-between p-4">
                                         <div>
                                             <CardTitle className="text-base font-bold">
@@ -563,6 +591,12 @@ export default function RegistroFacilPage() {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+          
+          <Button variant="outline" asChild>
+            <Link href="/reports">
+              <TrendingUp className="mr-2 h-4 w-4" /> Relatórios
+            </Link>
+          </Button>
 
           <Button variant="outline" asChild>
             <Link href="/settings">
