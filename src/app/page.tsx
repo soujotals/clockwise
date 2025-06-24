@@ -121,22 +121,25 @@ export default function RegistroFacilPage() {
       
       const today = new Date();
       const todayEntries = parsedEntries.filter(e => isSameDay(new Date(e.startTime), today));
-      
       const todayActiveEntry = todayEntries.find(e => !e.endTime);
       const todayCompletedEntries = todayEntries.filter(e => e.endTime);
 
-      if (todayCompletedEntries.length === 0 && !todayActiveEntry) {
-        setWorkdayStatus('NOT_STARTED');
-      } else if (todayCompletedEntries.length === 0 && todayActiveEntry) {
-        setWorkdayStatus('WORKING_MORNING');
-        setCurrentEntry(todayActiveEntry);
-      } else if (todayCompletedEntries.length === 1 && !todayActiveEntry) {
-        setWorkdayStatus('ON_BREAK');
-      } else if (todayCompletedEntries.length === 1 && todayActiveEntry) {
-        setWorkdayStatus('WORKING_AFTERNOON');
-        setCurrentEntry(todayActiveEntry);
-      } else if (todayCompletedEntries.length >= 2) {
-        setWorkdayStatus('DAY_ENDED');
+      if (todayActiveEntry) {
+          setCurrentEntry(todayActiveEntry);
+          if (todayCompletedEntries.length === 0) {
+              setWorkdayStatus('WORKING_MORNING');
+          } else {
+              setWorkdayStatus('WORKING_AFTERNOON');
+          }
+      } else {
+          setCurrentEntry(null);
+          if (todayCompletedEntries.length === 0) {
+              setWorkdayStatus('NOT_STARTED');
+          } else if (todayCompletedEntries.length === 1) {
+              setWorkdayStatus('ON_BREAK');
+          } else {
+              setWorkdayStatus('DAY_ENDED');
+          }
       }
     }
   }, []);
@@ -187,8 +190,13 @@ export default function RegistroFacilPage() {
         }
         break;
       }
-      case 'DAY_ENDED':
+      case 'DAY_ENDED': { // Action: Retorno (Loop)
+        const newEntry: TimeEntry = { id: crypto.randomUUID(), startTime: actionTime };
+        setTimeEntries(prev => [...prev, newEntry]);
+        setCurrentEntry(newEntry);
+        setWorkdayStatus('WORKING_AFTERNOON');
         break;
+      }
     }
   }, [workdayStatus, currentEntry]);
 
@@ -257,17 +265,23 @@ export default function RegistroFacilPage() {
     const todayEntries = timeEntries.filter(e => isSameDay(new Date(e.startTime), now));
     if (todayEntries.length === 0) return { label: 'Nenhum registro hoje', time: null };
 
-    const todayEntriesSorted = [...todayEntries].sort((a,b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
-    const lastEntry = todayEntriesSorted[todayEntriesSorted.length - 1];
+    const allEvents = todayEntries.flatMap(e => {
+        const events = [{ time: e.startTime, isStart: true }];
+        if (e.endTime) {
+            events.push({ time: e.endTime, isStart: false });
+        }
+        return events;
+    }).sort((a,b) => new Date(b.time).getTime() - new Date(a.time).getTime());
 
-    if (!lastEntry) return { label: 'Nenhum registro hoje', time: null };
+    const last = allEvents[0];
+    if (!last) return { label: 'Nenhum registro hoje', time: null };
 
-    if (!lastEntry.endTime) { // Active entry
-        if (todayEntriesSorted.length === 1) return { label: 'Entrada às', time: lastEntry.startTime };
-        return { label: 'Retorno às', time: lastEntry.startTime };
-    } else { // Completed entry
-        if (todayEntriesSorted.length === 1) return { label: 'Pausa às', time: lastEntry.endTime };
-        return { label: 'Saída às', time: lastEntry.endTime };
+    const completedEntriesCount = todayEntries.filter(e => e.endTime).length;
+    
+    if (last.isStart) {
+      return { label: completedEntriesCount === 0 ? 'Entrada às' : 'Retorno às', time: last.time };
+    } else {
+      return { label: completedEntriesCount === 1 ? 'Pausa às' : 'Saída às', time: last.time };
     }
   }, [timeEntries, now]);
   
@@ -341,7 +355,7 @@ export default function RegistroFacilPage() {
       case 'WORKING_MORNING': return { text: ['Registrar', 'Pausa'], icon: Coffee, disabled: false };
       case 'ON_BREAK': return { text: ['Registrar', 'Retorno'], icon: Play, disabled: false };
       case 'WORKING_AFTERNOON': return { text: ['Registrar', 'Saída'], icon: LogOut, disabled: false };
-      case 'DAY_ENDED': return { text: ['Expediente', 'Encerrado'], icon: CheckCircle2, disabled: true };
+      case 'DAY_ENDED': return { text: ['Registrar', 'Retorno'], icon: Play, disabled: false };
     }
   }, [workdayStatus]);
 
