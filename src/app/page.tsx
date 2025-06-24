@@ -562,15 +562,22 @@ export default function RegistroFacilPage() {
           <span className="text-base font-normal">{buttonConfig.text[1]}</span>
         </Button>
 
-        {workdayStatus === 'WORKING_BEFORE_BREAK' || workdayStatus === 'WORKING_AFTER_BREAK' ? (
-          <div className="text-5xl font-mono tracking-widest animate-in fade-in-0 duration-500 delay-300">
+        <div className="flex h-28 flex-col items-center justify-center">
+          {(workdayStatus === 'WORKING_BEFORE_BREAK' || workdayStatus === 'WORKING_AFTER_BREAK') && (
+            <div className="animate-in fade-in-0 delay-300 duration-500 text-5xl font-mono tracking-widest">
               {formatDuration(elapsedTime)}
-          </div>
-        ) : (
-          <div className="text-5xl font-mono tracking-widest text-muted-foreground animate-in fade-in-0 duration-500 delay-300">
+            </div>
+          )}
+          <div
+            className={`animate-in fade-in-0 delay-300 duration-500 font-mono tracking-widest text-muted-foreground ${
+              workdayStatus === 'WORKING_BEFORE_BREAK' || workdayStatus === 'WORKING_AFTER_BREAK'
+                ? 'text-lg mt-1'
+                : 'text-5xl'
+            }`}
+          >
             {format(now, 'HH:mm:ss')}
           </div>
-        )}
+        </div>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-400">
           <Card className="w-full bg-card">
