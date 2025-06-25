@@ -1,16 +1,16 @@
 {
-  "name": "Registro Fácil",
-  "short_name": "Registro Fácil",
-  "description": "Um aplicativo simples para registro de ponto.",
-  "start_url": "/",
-  "display": "standalone",
-  "background_color": "#F0F2F5",
-  "theme_color": "#111827",
-  "icons": [
-    {
-      "src": "/logo.svg",
-      "sizes": "any",
-      "type": "image/svg+xml"
-    }
-  ]
+    "name": "Clockwise",
+    "short_name": "Clockwise",
+    "description": "Um aplicativo simples para registro de ponto.",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#F0F2F5",
+    "theme_color": "#3F51B5",
+    "icons": [
+      {
+        "src": "/icon.svg",
+        "sizes": "any",
+        "type": "image/svg+xml"
+      }
+    ]
 }
