@@ -81,7 +81,6 @@ export default function ReportsPage() {
     const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
     const [workHoursPerDay, setWorkHoursPerDay] = useState(8);
     const [userWorkdays, setUserWorkdays] = useState<Workdays>(defaultWorkdays);
-    const [now, setNow] = useState(new Date());
     const [settings, setSettings] = useState<AppSettings | null>(null);
     const [isAdjustmentDialogOpen, setIsAdjustmentDialogOpen] = useState(false);
     const [adjustmentValue, setAdjustmentValue] = useState("00:00");
@@ -127,12 +126,6 @@ export default function ReportsPage() {
         fetchData();
     }, [user]);
     
-    useEffect(() => {
-        if (isLoading) return;
-        const timer = setInterval(() => setNow(new Date()), 1000);
-        return () => clearInterval(timer);
-    }, [isLoading]);
-    
     const dailyTotals = useMemo(() => {
         const totals: Record<string, number> = {};
         if (!timeEntries) return totals;
@@ -160,20 +153,6 @@ export default function ReportsPage() {
             return formatDuration(0);
         }
 
-        const currentEntry = timeEntries
-            .filter(entry => isSameDay(new Date(entry.startTime), now))
-            .find(entry => !entry.endTime);
-        
-        let dailyHours = timeEntries
-            .filter(e => e.endTime && isSameDay(new Date(e.startTime), now))
-            .reduce((acc, entry) => {
-            return acc + differenceInMilliseconds(new Date(entry.endTime!), new Date(entry.startTime));
-            }, 0);
-        
-        if (currentEntry) {
-            dailyHours += differenceInMilliseconds(now, new Date(currentEntry.startTime));
-        }
-
         const firstEntryDate = timeEntries.length > 0 ? timeEntries.reduce((earliest, entry) => {
             const entryDate = new Date(entry.startTime);
             return entryDate < earliest ? entryDate : earliest;
@@ -191,29 +170,30 @@ export default function ReportsPage() {
             return userWorkdays[dayKey];
         };
 
-        const pastDays = allDaysToConsider.filter(day => isBefore(day, today));
-        pastDays.forEach(day => {
-            if (isConfiguredWorkday(day)) {
-                totalTargetMs += workHoursPerDay * 60 * 60 * 1000;
-            }
+        const todayEntries = timeEntries.filter(e => isSameDay(new Date(e.startTime), today));
+        const hasActiveEntryForToday = todayEntries.some(e => !e.endTime);
+        const isTodayFinished = todayEntries.length > 0 && !hasActiveEntryForToday;
+
+        allDaysToConsider.forEach(day => {
+            const isToday = isSameDay(day, today);
 
             const entriesOnDay = timeEntries.filter(e => isSameDay(new Date(e.startTime), day) && e.endTime);
             const dailyTotal = entriesOnDay.reduce((total, entry) => {
                 return total + differenceInMilliseconds(new Date(entry.endTime!), new Date(entry.startTime));
             }, 0);
             totalWorkedMs += dailyTotal;
+
+            if (isConfiguredWorkday(day)) {
+                if (!isToday || (isToday && isTodayFinished)) {
+                   totalTargetMs += workHoursPerDay * 60 * 60 * 1000;
+                }
+            }
         });
-
-        totalWorkedMs += dailyHours; 
-
-        if (isConfiguredWorkday(today)) {
-          totalTargetMs += workHoursPerDay * 60 * 60 * 1000;
-        }
-
+        
         const bankMs = totalWorkedMs - totalTargetMs;
         const finalBankMs = bankMs + (settings?.timeBankAdjustment || 0);
         return formatDuration(finalBankMs);
-    }, [now, timeEntries, workHoursPerDay, userWorkdays, settings]);
+    }, [timeEntries, workHoursPerDay, userWorkdays, settings]);
     
     const selectedDayDetails = useMemo(() => {
       if (!selectedDay) return null;

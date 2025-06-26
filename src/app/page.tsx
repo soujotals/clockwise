@@ -258,7 +258,6 @@ export default function RegistroFacilPage() {
     }, new Date()) : new Date();
 
     const firstDay = startOfDay(firstEntryDate);
-
     const allDaysToConsider = eachDayOfInterval({ start: firstDay, end: today });
 
     let totalWorkedMs = 0;
@@ -270,30 +269,28 @@ export default function RegistroFacilPage() {
       return workdays[dayKey];
     };
 
-    const pastDays = allDaysToConsider.filter(day => isBefore(day, today));
-    pastDays.forEach(day => {
-        if (isConfiguredWorkday(day)) {
-            totalTargetMs += workHoursPerDay * 60 * 60 * 1000;
+    allDaysToConsider.forEach(day => {
+      const isToday = isSameDay(day, today);
+      
+      const entriesOnDay = timeEntries.filter(e => isSameDay(new Date(e.startTime), day) && e.endTime);
+      const dailyTotal = entriesOnDay.reduce((total, entry) => {
+        return total + differenceInMilliseconds(new Date(entry.endTime!), new Date(entry.startTime));
+      }, 0);
+
+      totalWorkedMs += dailyTotal;
+
+      if (isConfiguredWorkday(day)) {
+        if (!isToday || (isToday && workdayStatus === 'FINISHED')) {
+          totalTargetMs += workHoursPerDay * 60 * 60 * 1000;
         }
-
-        const entriesOnDay = timeEntries.filter(e => isSameDay(new Date(e.startTime), day) && e.endTime);
-        const dailyTotal = entriesOnDay.reduce((total, entry) => {
-            return total + differenceInMilliseconds(new Date(entry.endTime!), new Date(entry.startTime));
-        }, 0);
-        totalWorkedMs += dailyTotal;
+      }
     });
-
-    totalWorkedMs += dailyHours; 
-
-    if (isConfiguredWorkday(today)) {
-      totalTargetMs += workHoursPerDay * 60 * 60 * 1000;
-    }
 
     const bankMs = totalWorkedMs - totalTargetMs;
     const finalBankMs = bankMs + (settings?.timeBankAdjustment || 0);
     const sign = finalBankMs >= 0 ? "+" : "-";
     return `${sign}${formatDuration(Math.abs(finalBankMs))}`;
-  }, [dailyHours, timeEntries, workHoursPerDay, workdays, settings]);
+  }, [timeEntries, workHoursPerDay, workdays, settings, workdayStatus]);
 
   const lastEvent = useMemo(() => {
     const todayEntries = timeEntries
