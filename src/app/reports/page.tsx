@@ -330,8 +330,8 @@ export default function ReportsPage() {
                                     locale={ptBR}
                                     className="p-0"
                                     classNames={{
-                                        head_cell: "text-muted-foreground rounded-md w-14 md:w-16 font-normal text-[0.8rem] text-center",
-                                        cell: "h-14 md:h-16 w-14 md:w-16 text-center text-sm p-0 relative focus-within:relative focus-within:z-20",
+                                        head_cell: "text-muted-foreground rounded-md w-12 font-normal text-[0.8rem] text-center",
+                                        cell: "h-12 w-12 text-center text-sm p-0 relative focus-within:relative focus-within:z-20",
                                         day: "h-full w-full p-1 font-normal flex flex-col items-center justify-center rounded-md relative group",
                                     }}
                                     components={{

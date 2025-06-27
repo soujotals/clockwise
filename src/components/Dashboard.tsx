@@ -657,9 +657,9 @@ export default function Dashboard({ user }: DashboardProps) {
             <Button
               onClick={handleMainButtonClick}
               disabled={buttonConfig.disabled}
-              className="w-48 h-48 rounded-full flex flex-col items-center justify-center text-xl font-bold shadow-2xl shadow-primary/20 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-300 ease-in-out transform hover:scale-105 disabled:bg-muted disabled:scale-100 disabled:cursor-not-allowed animate-in fade-in-0 zoom-in-95 duration-500 delay-300"
+              className="w-44 h-44 rounded-full flex flex-col items-center justify-center text-xl font-bold shadow-2xl shadow-primary/20 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-300 ease-in-out transform hover:scale-105 disabled:bg-muted disabled:scale-100 disabled:cursor-not-allowed animate-in fade-in-0 zoom-in-95 duration-500 delay-300"
             >
-              <buttonConfig.icon className="mb-2" size={40} />
+              <buttonConfig.icon className="mb-2" size={36} />
               <span>{buttonConfig.text[0]}</span>
               <span className="text-base font-normal">{buttonConfig.text[1]}</span>
             </Button>
