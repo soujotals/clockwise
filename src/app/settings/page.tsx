@@ -313,14 +313,15 @@ export default function SettingsPage() {
                 </div>
             
                 <Card className="border-primary/50 bg-primary/10">
-                <CardContent className="p-3">
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <p className="font-semibold text-primary text-sm">Distribuição automática</p>
-                            <p className="text-sm text-primary/80">{dailyHoursDistribution}</p>
+                    <CardContent className="p-4">
+                        <div className="flex items-center gap-3">
+                            <Hourglass className="h-5 w-5 text-primary" />
+                            <div>
+                                <p className="font-semibold text-primary text-sm">Distribuição automática</p>
+                                <p className="text-sm text-primary/80">{dailyHoursDistribution}</p>
+                            </div>
                         </div>
-                    </div>
-                </CardContent>
+                    </CardContent>
                 </Card>
             </CardContent>
         </Card>
