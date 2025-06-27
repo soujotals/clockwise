@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
+    --background: 210 40% 98%;
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
@@ -27,13 +27,13 @@
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
+    --background: 224 71.4% 4.1%;
     --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
+    --card: 224 71.4% 4.1%;
     --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
+    --popover: 224 71.4% 4.1%;
     --popover-foreground: 210 40% 98%;
-    --primary: 24.6 95% 53.1%;
+    --primary: 22.8 95.8% 52.4%;
     --primary-foreground: 210 40% 98%;
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
@@ -45,7 +45,7 @@
     --destructive-foreground: 210 40% 98%;
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 24.6 95% 53.1%;
+    --ring: 22.8 95.8% 52.4%;
   }
 }
 
@@ -61,4 +61,10 @@
   textarea {
     @apply text-sm;
   }
+}
+
+/* Custom styles to hide browser's default time picker indicator */
+input[type="time"]::-webkit-calendar-picker-indicator {
+  display: none;
+  -webkit-appearance: none;
 }

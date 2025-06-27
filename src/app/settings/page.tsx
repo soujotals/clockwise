@@ -259,14 +259,15 @@ export default function SettingsPage() {
                     </div>
                      <div>
                         <Label htmlFor="work-start-time">Horário de início</Label>
-                        <div className="flex items-center gap-2 mt-2">
+                        <div className="relative mt-2 flex w-32 items-center">
                            <Input
                                 id="work-start-time"
                                 type="time"
                                 value={workStartTime}
                                 onChange={(e) => setWorkStartTime(e.target.value)}
-                                className="w-32 bg-input border-border"
+                                className="w-full bg-input border-border pr-8"
                             />
+                            <Clock className="pointer-events-none absolute right-2 h-4 w-4 text-primary" />
                         </div>
                     </div>
                 </div>
