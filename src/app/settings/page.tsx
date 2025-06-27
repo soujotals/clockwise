@@ -358,7 +358,7 @@ export default function SettingsPage() {
         </Card>
 
         <p className="text-center text-xs text-muted-foreground pt-8">
-            Registro Fácil v1.2.0
+            SouTemp v1.0.0
         </p>
       </main>
     </div>

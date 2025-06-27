@@ -29,7 +29,7 @@ export default function LoginPage() {
     try {
       await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
       
-      const email = `${username.toLowerCase()}@registrofacil.app`;
+      const email = `${username.toLowerCase()}@soutemp.app`;
       await signInWithEmailAndPassword(auth, email, password);
       router.push('/');
     } catch (error) {
@@ -51,7 +51,7 @@ export default function LoginPage() {
             <Logo />
           </div>
           <CardTitle className="mt-6 text-2xl">Bem-vindo de volta!</CardTitle>
-          <CardDescription>Faça login para acessar seu registro de ponto.</CardDescription>
+          <CardDescription>Faça login para gerenciar seu tempo.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">

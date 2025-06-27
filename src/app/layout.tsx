@@ -10,10 +10,10 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Registro Fácil",
-  description: "Um aplicativo simples para registro de ponto.",
+  title: "SouTemp",
+  description: "Seu ponto, seu tempo.",
   manifest: "/manifest.json",
-  themeColor: "#3B82F6",
+  themeColor: "#f97316",
 };
 
 export default function RootLayout({

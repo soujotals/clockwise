@@ -33,7 +33,7 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     try {
-      const email = `${username.toLowerCase()}@registrofacil.app`;
+      const email = `${username.toLowerCase()}@soutemp.app`;
       await createUserWithEmailAndPassword(auth, email, password);
       router.push('/');
     } catch (error: any) {
@@ -63,7 +63,7 @@ export default function RegisterPage() {
             <Logo />
           </div>
           <CardTitle className="mt-6 text-2xl">Criar uma conta</CardTitle>
-          <CardDescription>Crie sua conta para começar a usar o Registro Fácil.</CardDescription>
+          <CardDescription>Crie sua conta para começar a usar o SouTemp.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleRegister} className="space-y-4">
