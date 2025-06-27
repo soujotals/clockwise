@@ -195,16 +195,7 @@ export default function Dashboard({ user }: DashboardProps) {
       notificationTimeouts.current = {};
     }
     
-    const canNotify = settings?.enableReminders && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted';
-
-    const clearNotification = (key: string) => {
-      if (notificationTimeouts.current[key]) {
-        clearTimeout(notificationTimeouts.current[key]);
-        delete notificationTimeouts.current[key];
-      }
-    };
-
-    if (!canNotify) {
+    if (!settings?.enableReminders || typeof window === 'undefined' || !('Notification' in window) || Notification.permission !== 'granted') {
       clearAllNotifications();
       return;
     }
@@ -213,18 +204,27 @@ export default function Dashboard({ user }: DashboardProps) {
       new Notification(title, { ...options, icon: '/icon.svg', tag: title });
     };
 
-    if (workdayStatus === 'FINISHED') {
+    const clearNotification = (key: string) => {
+      if (notificationTimeouts.current[key]) {
+        clearTimeout(notificationTimeouts.current[key]);
+        delete notificationTimeouts.current[key];
+      }
+    };
+
+    // Reset notification state for the day
+    if (workdayStatus === 'FINISHED' || workdayStatus === 'NOT_STARTED') {
       hasNotifiedClockOut.current = false;
-      clearNotification('clockOut');
     }
 
+    // Schedule end-of-day notification
     const workHoursMillis = workHoursPerDay * 3600000;
     const isGoalMet = dailyHours >= workHoursMillis && workHoursMillis > 0;
-    if (workdayStatus === 'WORKING_AFTER_BREAK' && isGoalMet && !hasNotifiedClockOut.current) {
+    if ((workdayStatus === 'WORKING_AFTER_BREAK' || workdayStatus === 'WORKING_BEFORE_BREAK') && isGoalMet && !hasNotifiedClockOut.current) {
       showNotification('Jornada Concluída!', { body: 'Você já completou sua carga horária de hoje. Não se esqueça de registrar a saída.' });
       hasNotifiedClockOut.current = true;
     }
 
+    // Schedule start-of-day notification
     if (workdayStatus === 'NOT_STARTED' && settings.workStartTime && !notificationTimeouts.current.clockIn) {
       const today = new Date();
       const [hours, minutes] = settings.workStartTime.split(':').map(Number);
@@ -233,6 +233,7 @@ export default function Dashboard({ user }: DashboardProps) {
       if (workdays[dayKey] && today < workStartTimeOnDate) {
         const timeoutMs = workStartTimeOnDate.getTime() - today.getTime();
         notificationTimeouts.current.clockIn = window.setTimeout(() => {
+          // Re-check status when timeout fires
           const currentEntries = timeEntries.filter(e => isSameDay(new Date(e.startTime), new Date()));
           if (currentEntries.length === 0) {
             showNotification('Hora de começar!', { body: 'Bom dia! Não se esqueça de registrar sua entrada.' });
@@ -244,8 +245,9 @@ export default function Dashboard({ user }: DashboardProps) {
       clearNotification('clockIn');
     }
 
+    // Schedule end-of-break notification
     if (workdayStatus === 'ON_BREAK' && settings.breakDuration && !notificationTimeouts.current.breakEnd) {
-      const breakStartEntry = timeEntries.find(e => isSameDay(new Date(e.startTime), new Date()) && e.endTime);
+      const breakStartEntry = timeEntries.filter(e => isSameDay(new Date(e.startTime), new Date()) && e.endTime).sort((a, b) => new Date(b.endTime!).getTime() - new Date(a.endTime!).getTime())[0];
       if (breakStartEntry?.endTime) {
         const breakEndTime = new Date(new Date(breakStartEntry.endTime).getTime() + settings.breakDuration * 60000);
         if (new Date() < breakEndTime) {
@@ -261,7 +263,7 @@ export default function Dashboard({ user }: DashboardProps) {
     }
     
     return () => clearAllNotifications();
-  }, [settings, timeEntries, workdayStatus, workHoursPerDay, dailyHours, workdays]);
+  }, [settings, workdayStatus, workHoursPerDay, dailyHours, workdays, timeEntries]);
 
   const elapsedTime = useMemo(() => {
     if (currentEntry) {
@@ -751,13 +753,10 @@ export default function Dashboard({ user }: DashboardProps) {
                       <div className="space-y-4">
                         {generalHistory.map(({ day, events }) => {
                             const dayDate = parse(day, 'yyyy-MM-dd', new Date());
-                            const totalDayMillis = events.reduce((acc, event, index, arr) => {
-                                const eventTime = new Date(event.time).getTime();
-                                if (event.label === 'Saída p/ Intervalo' || event.label === 'Saída') {
-                                  const correspondingStartEvent = arr.find(e => e.entryId === event.entryId && (e.label === 'Entrada' || e.label === 'Retorno do Intervalo'));
-                                  if (correspondingStartEvent) {
-                                    acc += eventTime - new Date(correspondingStartEvent.time).getTime();
-                                  }
+                            const entriesForThisDay = timeEntries.filter(e => isSameDay(new Date(e.startTime), dayDate));
+                            const totalDayMillis = entriesForThisDay.reduce((acc, entry) => {
+                                if (entry.endTime) {
+                                    return acc + differenceInMilliseconds(new Date(entry.endTime), new Date(entry.startTime));
                                 }
                                 return acc;
                             }, 0);
