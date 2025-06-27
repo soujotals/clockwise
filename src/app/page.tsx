@@ -195,13 +195,6 @@ export default function RegistroFacilPage() {
     return total;
   }, [timeEntries, now, currentEntry]);
   
-  const elapsedTime = useMemo(() => {
-    if (currentEntry) {
-      return differenceInMilliseconds(now, new Date(currentEntry.startTime));
-    }
-    return 0;
-  }, [now, currentEntry]);
-
   // Effect for scheduling notifications
   useEffect(() => {
     // Clear all notification timeouts on component unmount
@@ -277,6 +270,13 @@ export default function RegistroFacilPage() {
     
     return () => clearAllNotifications();
   }, [settings, timeEntries, workdayStatus, workHoursPerDay, dailyHours, workdays]);
+
+  const elapsedTime = useMemo(() => {
+    if (currentEntry) {
+      return differenceInMilliseconds(now, new Date(currentEntry.startTime));
+    }
+    return 0;
+  }, [now, currentEntry]);
   
   const timeFormatString = useMemo(() => is24hFormat ? 'HH:mm' : 'hh:mm a', [is24hFormat]);
   const timeFormatStringWithSeconds = useMemo(() => is24hFormat ? 'HH:mm:ss' : 'hh:mm:ss a', [is24hFormat]);
@@ -657,17 +657,19 @@ export default function RegistroFacilPage() {
           </Button>
         </header>
 
-        <section className="w-full text-center space-y-4">
-          <p className="text-lg text-muted-foreground animate-in fade-in-0 duration-500 delay-100">{statusLabel}</p>
-          <Button
-            onClick={handleMainButtonClick}
-            disabled={buttonConfig.disabled}
-            className="w-48 h-48 rounded-full flex flex-col items-center justify-center text-xl font-bold shadow-2xl shadow-primary/20 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-300 ease-in-out transform hover:scale-105 disabled:bg-muted disabled:scale-100 disabled:cursor-not-allowed animate-in fade-in-0 zoom-in-95 duration-500 delay-300"
-          >
-            <buttonConfig.icon className="mb-2" size={40} />
-            <span>{buttonConfig.text[0]}</span>
-            <span className="text-base font-normal">{buttonConfig.text[1]}</span>
-          </Button>
+        <section className="w-full space-y-4">
+          <p className="text-lg text-center text-muted-foreground animate-in fade-in-0 duration-500 delay-100">{statusLabel}</p>
+          <div className="flex justify-center">
+            <Button
+              onClick={handleMainButtonClick}
+              disabled={buttonConfig.disabled}
+              className="w-48 h-48 rounded-full flex flex-col items-center justify-center text-xl font-bold shadow-2xl shadow-primary/20 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-300 ease-in-out transform hover:scale-105 disabled:bg-muted disabled:scale-100 disabled:cursor-not-allowed animate-in fade-in-0 zoom-in-95 duration-500 delay-300"
+            >
+              <buttonConfig.icon className="mb-2" size={40} />
+              <span>{buttonConfig.text[0]}</span>
+              <span className="text-base font-normal">{buttonConfig.text[1]}</span>
+            </Button>
+          </div>
           <div className="flex h-24 flex-col items-center justify-center animate-in fade-in-0 duration-500 delay-200">
             {(workdayStatus === 'WORKING_BEFORE_BREAK' || workdayStatus === 'WORKING_AFTER_BREAK') && (
               <div className="text-4xl font-mono tracking-widest">
