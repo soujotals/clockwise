@@ -3,12 +3,13 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, setPersistence, browserLocalPersistence, browserSessionPersistence } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import Logo from '@/components/Logo';
 import { Loader2 } from 'lucide-react';
@@ -18,6 +19,7 @@ export default function LoginPage() {
   const { toast } = useToast();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -25,6 +27,8 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
+      await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
+      
       const email = `${username.toLowerCase()}@registrofacil.app`;
       await signInWithEmailAndPassword(auth, email, password);
       router.push('/');
@@ -74,6 +78,20 @@ export default function LoginPage() {
                 required
                 disabled={isLoading}
               />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="remember-me"
+                checked={rememberMe}
+                onCheckedChange={(checked) => setRememberMe(Boolean(checked))}
+                disabled={isLoading}
+              />
+              <label
+                htmlFor="remember-me"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Lembrar de mim
+              </label>
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
