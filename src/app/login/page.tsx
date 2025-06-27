@@ -29,9 +29,29 @@ export default function LoginPage() {
     try {
       await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
       
-      const email = `${username.toLowerCase()}@soutemp.app`;
-      await signInWithEmailAndPassword(auth, email, password);
-      router.push('/');
+      const newDomainEmail = `${username.toLowerCase()}@soutemp.app`;
+      const oldDomainEmail = `${username.toLowerCase()}@registrofacil.app`;
+
+      try {
+        // Try with the new domain first
+        await signInWithEmailAndPassword(auth, newDomainEmail, password);
+        router.push('/');
+      } catch (error: any) {
+        // If it fails with an invalid credential, it could be the wrong domain or wrong password.
+        // We try the old domain just in case for backward compatibility.
+        if (error.code === 'auth/invalid-credential') {
+            try {
+                await signInWithEmailAndPassword(auth, oldDomainEmail, password);
+                router.push('/');
+            } catch (fallbackError) {
+                // If the fallback also fails, we throw to the generic error handler below.
+                throw fallbackError;
+            }
+        } else {
+            // Re-throw other errors (e.g., network issues)
+            throw error;
+        }
+      }
     } catch (error) {
       toast({
         title: 'Erro de Login',
