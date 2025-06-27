@@ -1,11 +1,11 @@
 {
   "name": "Registro Fácil",
-  "short_name": "Registro Fácil",
+  "short_name": "Ponto",
   "description": "Um aplicativo simples para registro de ponto.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#F0F2F5",
-  "theme_color": "#3F51B5",
+  "background_color": "#1c1917",
+  "theme_color": "#3b82f6",
   "icons": [
     {
       "src": "/icon.svg",

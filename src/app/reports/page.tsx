@@ -175,8 +175,7 @@ export default function ReportsPage() {
         };
 
         const todayEntries = timeEntries.filter(e => isSameDay(new Date(e.startTime), today));
-        const hasActiveEntryForToday = todayEntries.some(e => !e.endTime);
-        const isTodayFinished = todayEntries.length > 0 && !hasActiveEntryForToday;
+        const isTodayFinished = todayEntries.length > 0 && todayEntries.every(e => e.endTime);
 
         allDaysToConsider.forEach(day => {
             const isToday = isSameDay(day, today);

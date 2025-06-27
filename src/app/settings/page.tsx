@@ -87,26 +87,31 @@ export default function SettingsPage() {
     const fetchInitialSettings = async () => {
       setIsLoading(true);
       const settings = await getSettings(user.uid);
-      const initial: Partial<AppSettings> = {};
+      const initial: Partial<AppSettings> = {
+        weeklyHours: 40,
+        workdays: defaultWorkdays,
+        workStartTime: '09:00',
+        breakDuration: 60,
+        is24hFormat: true,
+        enableReminders: false,
+      };
+
       if (settings) {
-        setWeeklyHours(settings.weeklyHours ?? 40);
-        initial.weeklyHours = settings.weeklyHours ?? 40;
-        
-        setWorkdays(settings.workdays ?? defaultWorkdays);
-        initial.workdays = settings.workdays ?? defaultWorkdays;
-
-        setWorkStartTime(settings.workStartTime ?? '09:00');
-        initial.workStartTime = settings.workStartTime ?? '09:00';
-
-        setBreakDuration(settings.breakDuration ?? 60);
-        initial.breakDuration = settings.breakDuration ?? 60;
-        
-        setIs24hFormat(settings.is24hFormat ?? true);
-        initial.is24hFormat = settings.is24hFormat ?? true;
-        
-        setEnableReminders(settings.enableReminders ?? false);
-        initial.enableReminders = settings.enableReminders ?? false;
+        initial.weeklyHours = settings.weeklyHours ?? initial.weeklyHours;
+        initial.workdays = settings.workdays ?? initial.workdays;
+        initial.workStartTime = settings.workStartTime ?? initial.workStartTime;
+        initial.breakDuration = settings.breakDuration ?? initial.breakDuration;
+        initial.is24hFormat = settings.is24hFormat ?? initial.is24hFormat;
+        initial.enableReminders = settings.enableReminders ?? initial.enableReminders;
       }
+      
+      setWeeklyHours(initial.weeklyHours!);
+      setWorkdays(initial.workdays!);
+      setWorkStartTime(initial.workStartTime!);
+      setBreakDuration(initial.breakDuration!);
+      setIs24hFormat(initial.is24hFormat!);
+      setEnableReminders(initial.enableReminders!);
+      
       setInitialSettings(initial);
       setIsLoading(false);
     };

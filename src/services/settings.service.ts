@@ -1,6 +1,6 @@
 
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 export type Workdays = {
   sun: boolean;
@@ -20,6 +20,7 @@ export type AppSettings = {
   enableReminders?: boolean;
   workStartTime?: string; // e.g., "09:00"
   breakDuration?: number; // in minutes
+  updatedAt?: any;
 };
 
 const getSettingsDocRef = (userId: string) => doc(db, `users/${userId}/settings`, 'userSettings');
@@ -37,5 +38,5 @@ export const getSettings = async (userId: string): Promise<AppSettings | null> =
 export const saveSettings = async (userId: string, settings: Partial<AppSettings>): Promise<void> => {
   if (!userId) throw new Error("User not authenticated");
   const settingsDocRef = getSettingsDocRef(userId);
-  await setDoc(settingsDocRef, settings, { merge: true });
+  await setDoc(settingsDocRef, { ...settings, updatedAt: serverTimestamp() }, { merge: true });
 };

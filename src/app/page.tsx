@@ -93,13 +93,6 @@ export default function RegistroFacilPage() {
   const hasNotifiedClockOut = useRef(false);
 
   useEffect(() => {
-    // Clear all notification timeouts on component unmount
-    return () => {
-      Object.values(notificationTimeouts.current).forEach(clearTimeout);
-    };
-  }, []);
-
-  useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
@@ -206,6 +199,12 @@ export default function RegistroFacilPage() {
 
   // Effect for scheduling notifications
   useEffect(() => {
+    // Clear all notification timeouts on component unmount
+    const clearAllNotifications = () => {
+      Object.values(notificationTimeouts.current).forEach(clearTimeout);
+      notificationTimeouts.current = {};
+    }
+    
     const canNotify = settings?.enableReminders && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted';
 
     const clearNotification = (key: string) => {
@@ -216,7 +215,7 @@ export default function RegistroFacilPage() {
     };
 
     if (!canNotify) {
-      Object.keys(notificationTimeouts.current).forEach(clearNotification);
+      clearAllNotifications();
       return;
     }
 
@@ -224,12 +223,11 @@ export default function RegistroFacilPage() {
       new Notification(title, { ...options, icon: '/icon.svg', tag: title });
     };
 
-    // Reset clock-out flag when work is finished
     if (workdayStatus === 'FINISHED') {
       hasNotifiedClockOut.current = false;
+      clearNotification('clockOut');
     }
 
-    // 1. Clock-out reminder
     const workHoursMillis = workHoursPerDay * 3600000;
     const isGoalMet = dailyHours >= workHoursMillis && workHoursMillis > 0;
     if (workdayStatus === 'WORKING_AFTER_BREAK' && isGoalMet && !hasNotifiedClockOut.current) {
@@ -237,7 +235,6 @@ export default function RegistroFacilPage() {
       hasNotifiedClockOut.current = true;
     }
 
-    // 2. Clock-in reminder
     if (workdayStatus === 'NOT_STARTED' && settings.workStartTime && !notificationTimeouts.current.clockIn) {
       const today = new Date();
       const [hours, minutes] = settings.workStartTime.split(':').map(Number);
@@ -257,7 +254,6 @@ export default function RegistroFacilPage() {
       clearNotification('clockIn');
     }
 
-    // 3. End-of-break reminder
     if (workdayStatus === 'ON_BREAK' && settings.breakDuration && !notificationTimeouts.current.breakEnd) {
       const breakStartEntry = timeEntries.find(e => isSameDay(new Date(e.startTime), new Date()) && e.endTime);
       if (breakStartEntry?.endTime) {
@@ -273,6 +269,8 @@ export default function RegistroFacilPage() {
     } else if (workdayStatus !== 'ON_BREAK') {
       clearNotification('breakEnd');
     }
+    
+    return () => clearAllNotifications();
   }, [settings, timeEntries, workdayStatus, workHoursPerDay, dailyHours, workdays]);
   
   const timeFormatString = useMemo(() => is24hFormat ? 'HH:mm' : 'hh:mm a', [is24hFormat]);
@@ -355,8 +353,7 @@ export default function RegistroFacilPage() {
     };
     
     const todayEntries = timeEntries.filter(e => isSameDay(new Date(e.startTime), today));
-    const hasActiveEntryForToday = todayEntries.some(e => !e.endTime);
-    const isTodayFinished = todayEntries.length > 0 && !hasActiveEntryForToday;
+    const isTodayFinished = todayEntries.length > 0 && todayEntries.every(e => e.endTime);
 
     allDaysToConsider.forEach(day => {
       const isToday = isSameDay(day, today);
