@@ -734,10 +734,10 @@ export default function Dashboard({ user }: DashboardProps) {
           </Card>
         </section>
 
-        <nav className="w-full flex flex-col sm:flex-row gap-2 pt-4 animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-500">
+        <nav className="w-full flex flex-row gap-2 pt-4 animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-500">
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="outline" className="w-full">
+              <Button variant="outline" className="flex-1">
                 <BarChart className="mr-2 h-4 w-4" /> Histórico
               </Button>
             </AlertDialogTrigger>
@@ -762,7 +762,7 @@ export default function Dashboard({ user }: DashboardProps) {
                             }, 0);
 
                             return (
-                                <Card key={day} className="bg-muted">
+                                <Card key={day} className="bg-muted transition-all hover:shadow-md">
                                     <CardHeader className="flex flex-row items-center justify-between p-4">
                                         <div>
                                             <CardTitle className="text-base font-bold">
@@ -780,7 +780,7 @@ export default function Dashboard({ user }: DashboardProps) {
                                     <CardContent className="p-4 pt-0">
                                         <div className="space-y-1">
                                             {events.map((event) => (
-                                                <div key={event.id} className="flex items-center justify-between rounded-md px-2 py-3 hover:bg-muted/50">
+                                                <div key={event.id} className="flex items-center justify-between rounded-md px-2 py-3 hover:bg-background/50">
                                                     <div className="flex items-center gap-3">
                                                         <div className="flex items-center justify-center h-8 w-8 rounded-full bg-primary/10 text-primary">
                                                           <Clock size={16} />
@@ -848,13 +848,13 @@ export default function Dashboard({ user }: DashboardProps) {
             </AlertDialogContent>
           </AlertDialog>
           
-          <Button variant="outline" className="w-full" asChild>
+          <Button variant="outline" className="flex-1" asChild>
             <Link href="/reports">
               <TrendingUp className="mr-2 h-4 w-4" /> Relatórios
             </Link>
           </Button>
 
-          <Button variant="outline" className="w-full" asChild>
+          <Button variant="outline" className="flex-1" asChild>
             <Link href="/settings">
               <Settings className="mr-2 h-4 w-4" /> Configurações
             </Link>
