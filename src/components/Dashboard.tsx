@@ -419,7 +419,7 @@ export default function Dashboard({ user }: DashboardProps) {
     let breakDurationMs = 0;
             
     // If the break is finished, calculate its actual duration.
-    if ((workdayStatus === 'WORKING_AFTER_BREAK' || workdayStatus === 'FINISHED') && todayEntries.length > 1 && todayEntries[0].endTime && todayEntries[1]?.startTime) {
+    if (workdayStatus === 'WORKING_AFTER_BREAK' && todayEntries.length > 1 && todayEntries[0].endTime && todayEntries[1]?.startTime) {
          const breakStartTime = new Date(todayEntries[0].endTime);
          const breakEndTime = new Date(todayEntries[1].startTime);
          breakDurationMs = differenceInMilliseconds(breakEndTime, breakStartTime);
