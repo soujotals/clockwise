@@ -36,22 +36,20 @@ export default function LoginPage() {
         // Try with the new domain first
         await signInWithEmailAndPassword(auth, newDomainEmail, password);
         router.push('/');
+        return; // Success, exit the function
       } catch (error: any) {
-        // If it fails with an invalid credential, it could be the wrong domain or wrong password.
-        // We try the old domain just in case for backward compatibility.
-        if (error.code === 'auth/invalid-credential') {
-            try {
-                await signInWithEmailAndPassword(auth, oldDomainEmail, password);
-                router.push('/');
-            } catch (fallbackError) {
-                // If the fallback also fails, we throw to the generic error handler below.
-                throw fallbackError;
-            }
-        } else {
-            // Re-throw other errors (e.g., network issues)
-            throw error;
+        // If it's not an invalid credential error, then it's something else (network, etc).
+        // We shouldn't try the fallback in that case.
+        if (error.code !== 'auth/invalid-credential') {
+            throw error; // Rethrow to be caught by the outer catch.
         }
       }
+
+      // If we're here, it means the first attempt failed with 'auth/invalid-credential'.
+      // Now, try the old domain as a fallback.
+      await signInWithEmailAndPassword(auth, oldDomainEmail, password);
+      router.push('/');
+
     } catch (error) {
       toast({
         title: 'Erro de Login',
@@ -103,7 +101,7 @@ export default function LoginPage() {
               <Checkbox
                 id="remember-me"
                 checked={rememberMe}
-                onCheckedChange={(checked) => setRememberMe(Boolean(checked))}
+                onCheckedChange={(checked) => setRememberMe(checked === true)}
                 disabled={isLoading}
               />
               <label
