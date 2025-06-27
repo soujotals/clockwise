@@ -683,10 +683,10 @@ export default function Dashboard({ user }: DashboardProps) {
         </section>
 
         <section className="w-full grid grid-cols-2 gap-4 animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-400">
-          <Card>
+          <Card className="group transition-all hover:shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Progresso Diário</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              <TrendingUp className="h-4 w-4 text-muted-foreground transition-transform group-hover:scale-110" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{progress.toFixed(0)}%</div>
@@ -694,10 +694,10 @@ export default function Dashboard({ user }: DashboardProps) {
               <Progress value={progress} className="h-2 mt-2" />
             </CardContent>
           </Card>
-          <Card>
+          <Card className="group transition-all hover:shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Banco de Horas</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
+              <Clock className="h-4 w-4 text-muted-foreground transition-transform group-hover:scale-110" />
             </CardHeader>
             <CardContent>
                <div className={`text-2xl font-bold ${timeBank.startsWith('+') ? 'text-primary' : 'text-destructive'}`}>
@@ -706,10 +706,10 @@ export default function Dashboard({ user }: DashboardProps) {
               <p className="text-xs text-muted-foreground">Saldo acumulado</p>
             </CardContent>
           </Card>
-           <Card>
+           <Card className="group transition-all hover:shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Último Registro</CardTitle>
-              <LogIn className="h-4 w-4 text-muted-foreground" />
+              <LogIn className="h-4 w-4 text-muted-foreground transition-transform group-hover:scale-110" />
             </CardHeader>
             <CardContent>
                <div className="text-lg font-semibold">
@@ -720,10 +720,10 @@ export default function Dashboard({ user }: DashboardProps) {
                 </p>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="group transition-all hover:shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Previsão de Saída</CardTitle>
-              <Timer className="h-4 w-4 text-muted-foreground" />
+              <Timer className="h-4 w-4 text-muted-foreground transition-transform group-hover:scale-110" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">

@@ -233,7 +233,7 @@ export default function SettingsPage() {
       </header>
 
       <main className="p-4 md:p-6 space-y-6 max-w-2xl mx-auto w-full flex-grow animate-in fade-in-0 duration-500">
-        <Card className="animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-100">
+        <Card className="animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-100 transition-all hover:shadow-md">
             <CardHeader>
                 <CardTitle className="flex items-center gap-3">
                     <Briefcase className="text-primary" />
@@ -325,7 +325,7 @@ export default function SettingsPage() {
             </CardContent>
         </Card>
 
-        <Card className="animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-200">
+        <Card className="animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-200 transition-all hover:shadow-md">
              <CardHeader>
                 <CardTitle className="flex items-center gap-3">
                     <Bell className="text-primary"/>

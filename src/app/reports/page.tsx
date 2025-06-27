@@ -296,7 +296,7 @@ export default function ReportsPage() {
                         Resumo do Banco de Horas
                     </h2>
 
-                    <Card className="w-full text-center relative max-w-md mx-auto">
+                    <Card className="w-full text-center relative max-w-md mx-auto transition-all hover:shadow-md">
                         <Button variant="ghost" size="icon" className="absolute top-2 right-2 text-muted-foreground hover:text-foreground" onClick={() => setIsAdjustmentDialogOpen(true)}>
                             <Pencil className="h-4 w-4" />
                             <span className="sr-only">Ajustar Saldo</span>
@@ -318,7 +318,7 @@ export default function ReportsPage() {
                         <CalendarIcon className="text-primary" />
                         Registros por Dia
                     </h2>
-                    <Card>
+                    <Card className="transition-all hover:shadow-md">
                        <CardContent className="flex flex-col md:flex-row p-0 md:p-4 gap-4 md:gap-8">
                             <div className="p-4 pb-0 md:p-0 md:w-auto flex justify-center">
                                 <Calendar
