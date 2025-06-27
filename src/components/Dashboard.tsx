@@ -419,7 +419,7 @@ export default function Dashboard({ user }: DashboardProps) {
     let breakDurationMs = 0;
             
     // If the break is finished, calculate its actual duration.
-    if (workdayStatus === 'WORKING_AFTER_BREAK' && todayEntries.length > 1 && todayEntries[0].endTime && todayEntries[1]?.startTime) {
+    if ((workdayStatus === 'WORKING_AFTER_BREAK') && todayEntries.length > 1 && todayEntries[0].endTime && todayEntries[1]?.startTime) {
          const breakStartTime = new Date(todayEntries[0].endTime);
          const breakEndTime = new Date(todayEntries[1].startTime);
          breakDurationMs = differenceInMilliseconds(breakEndTime, breakStartTime);
@@ -700,7 +700,7 @@ export default function Dashboard({ user }: DashboardProps) {
               <Clock className="h-4 w-4 text-muted-foreground transition-transform group-hover:scale-110" />
             </CardHeader>
             <CardContent>
-               <div className={`text-2xl font-bold ${timeBank.startsWith('+') ? 'text-primary' : 'text-destructive'}`}>
+               <div className={`text-2xl font-bold ${timeBank.startsWith('+') || timeBank.startsWith('+00h00m') ? 'text-primary' : 'text-destructive'}`}>
                   {timeBank}
                 </div>
               <p className="text-xs text-muted-foreground">Saldo acumulado</p>
@@ -737,7 +737,7 @@ export default function Dashboard({ user }: DashboardProps) {
         <nav className="w-full flex flex-row gap-2 pt-4 animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-500">
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="outline" className="flex-1">
+              <Button variant="outline" className="flex-1 border-primary/40 hover:bg-primary/10 hover:border-primary transition-all">
                 <BarChart className="mr-2 h-4 w-4" /> Histórico
               </Button>
             </AlertDialogTrigger>
@@ -848,13 +848,13 @@ export default function Dashboard({ user }: DashboardProps) {
             </AlertDialogContent>
           </AlertDialog>
           
-          <Button variant="outline" className="flex-1" asChild>
+          <Button variant="outline" className="flex-1 border-primary/40 hover:bg-primary/10 hover:border-primary transition-all" asChild>
             <Link href="/reports">
               <TrendingUp className="mr-2 h-4 w-4" /> Relatórios
             </Link>
           </Button>
 
-          <Button variant="outline" className="flex-1" asChild>
+          <Button variant="outline" className="flex-1 border-primary/40 hover:bg-primary/10 hover:border-primary transition-all" asChild>
             <Link href="/settings">
               <Settings className="mr-2 h-4 w-4" /> Configurações
             </Link>
