@@ -1,3 +1,4 @@
+
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
@@ -17,6 +18,8 @@ export type AppSettings = {
   timeBankAdjustment?: number; // Adjustment in milliseconds
   is24hFormat?: boolean;
   enableReminders?: boolean;
+  workStartTime?: string; // e.g., "09:00"
+  breakDuration?: number; // in minutes
 };
 
 const getSettingsDocRef = (userId: string) => doc(db, `users/${userId}/settings`, 'userSettings');

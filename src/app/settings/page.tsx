@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -5,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useState, useEffect, useMemo } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { ArrowLeft, Briefcase, Clock, Bell, Info, Save } from 'lucide-react';
+import { ArrowLeft, Briefcase, Clock, Bell, Info, Save, Hourglass } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -56,14 +57,17 @@ export default function SettingsPage() {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Settings state
   const [weeklyHours, setWeeklyHours] = useState<string | number>(40);
-  const [initialWeeklyHours, setInitialWeeklyHours] = useState<string | number>(40);
   const [workdays, setWorkdays] = useState<Workdays>(defaultWorkdays);
-  const [initialWorkdays, setInitialWorkdays] = useState<Workdays>(defaultWorkdays);
+  const [workStartTime, setWorkStartTime] = useState('09:00');
+  const [breakDuration, setBreakDuration] = useState<string | number>(60);
   const [is24hFormat, setIs24hFormat] = useState(true);
-  const [initialIs24hFormat, setInitialIs24hFormat] = useState(true);
-  const [enableReminders, setEnableReminders] = useState(true);
-  const [initialEnableReminders, setInitialEnableReminders] = useState(true);
+  const [enableReminders, setEnableReminders] = useState(false);
+
+  // Initial state for change detection
+  const [initialSettings, setInitialSettings] = useState<Partial<AppSettings>>({});
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -83,23 +87,27 @@ export default function SettingsPage() {
     const fetchInitialSettings = async () => {
       setIsLoading(true);
       const settings = await getSettings(user.uid);
+      const initial: Partial<AppSettings> = {};
       if (settings) {
-        const hours = settings.weeklyHours || 40;
-        setWeeklyHours(hours);
-        setInitialWeeklyHours(hours);
+        setWeeklyHours(settings.weeklyHours ?? 40);
+        initial.weeklyHours = settings.weeklyHours ?? 40;
+        
+        setWorkdays(settings.workdays ?? defaultWorkdays);
+        initial.workdays = settings.workdays ?? defaultWorkdays;
 
-        const savedWorkdays = settings.workdays || defaultWorkdays;
-        setWorkdays(savedWorkdays);
-        setInitialWorkdays(savedWorkdays);
+        setWorkStartTime(settings.workStartTime ?? '09:00');
+        initial.workStartTime = settings.workStartTime ?? '09:00';
+
+        setBreakDuration(settings.breakDuration ?? 60);
+        initial.breakDuration = settings.breakDuration ?? 60;
         
-        const savedIs24hFormat = settings.is24hFormat ?? true;
-        setIs24hFormat(savedIs24hFormat);
-        setInitialIs24hFormat(savedIs24hFormat);
+        setIs24hFormat(settings.is24hFormat ?? true);
+        initial.is24hFormat = settings.is24hFormat ?? true;
         
-        const savedEnableReminders = settings.enableReminders ?? true;
-        setEnableReminders(savedEnableReminders);
-        setInitialEnableReminders(savedEnableReminders);
+        setEnableReminders(settings.enableReminders ?? false);
+        initial.enableReminders = settings.enableReminders ?? false;
       }
+      setInitialSettings(initial);
       setIsLoading(false);
     };
     fetchInitialSettings();
@@ -109,21 +117,41 @@ export default function SettingsPage() {
     setWorkdays(prev => ({ ...prev, [day]: !prev[day] }));
   };
 
+  const handleEnableRemindersChange = async (checked: boolean) => {
+    setEnableReminders(checked);
+    if (checked && typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'granted') {
+         toast({ title: "Notificações já estão ativadas." });
+      } else if (Notification.permission !== 'denied') {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+          toast({ title: "Notificações Ativadas!", description: "Você receberá lembretes úteis." });
+        } else {
+          setEnableReminders(false);
+          toast({ title: "Permissão Negada", description: "As notificações são necessárias para os lembretes.", variant: 'destructive' });
+        }
+      } else {
+        setEnableReminders(false);
+        toast({ title: "Notificações Bloqueadas", description: "Por favor, habilite as notificações nas configurações do seu navegador.", variant: 'destructive' });
+      }
+    }
+  };
+
+
   const handleSave = async () => {
     if (!user) return;
     const newSettings: AppSettings = {
       weeklyHours: Number(weeklyHours),
       workdays,
+      workStartTime,
+      breakDuration: Number(breakDuration),
       is24hFormat,
       enableReminders,
     };
 
     try {
       await saveSettings(user.uid, newSettings);
-      setInitialWeeklyHours(Number(weeklyHours));
-      setInitialWorkdays(workdays);
-      setInitialIs24hFormat(is24hFormat);
-      setInitialEnableReminders(enableReminders);
+      setInitialSettings(newSettings); // Update initial state to reflect saved changes
       toast({
         title: "Configurações Salvas",
         description: "Suas preferências foram atualizadas com sucesso.",
@@ -138,11 +166,18 @@ export default function SettingsPage() {
     }
   };
 
-  const weeklyHoursChanged = Number(weeklyHours) !== Number(initialWeeklyHours);
-  const workdaysChanged = JSON.stringify(workdays) !== JSON.stringify(initialWorkdays);
-  const formatChanged = is24hFormat !== initialIs24hFormat;
-  const remindersChanged = enableReminders !== initialEnableReminders;
-  const hasChanges = weeklyHoursChanged || workdaysChanged || formatChanged || remindersChanged;
+  const hasChanges = useMemo(() => {
+    if (isLoading) return false;
+    const currentSettings = {
+        weeklyHours: Number(weeklyHours),
+        workdays,
+        workStartTime,
+        breakDuration: Number(breakDuration),
+        is24hFormat,
+        enableReminders
+    };
+    return JSON.stringify(currentSettings) !== JSON.stringify(initialSettings);
+  }, [weeklyHours, workdays, workStartTime, breakDuration, is24hFormat, enableReminders, initialSettings, isLoading]);
 
   const dailyHoursDistribution = useMemo(() => {
     const numberOfWorkDays = Object.values(workdays).filter(Boolean).length;
@@ -184,6 +219,12 @@ export default function SettingsPage() {
           </Link>
         </Button>
         <h1 className="text-xl font-bold ml-4">Configurações</h1>
+         {hasChanges && (
+            <Button onClick={handleSave} className="ml-auto" size="sm">
+                <Save className="mr-2 h-4 w-4" />
+                Salvar Alterações
+            </Button>
+        )}
       </header>
 
       <main className="p-4 md:p-6 space-y-6 max-w-2xl mx-auto w-full flex-grow animate-in fade-in-0 duration-500">
@@ -191,39 +232,38 @@ export default function SettingsPage() {
             <CardHeader>
                 <CardTitle className="flex items-center gap-3">
                     <Briefcase className="text-primary" />
-                    Minha Jornada de Trabalho
+                    Jornada de Trabalho
                 </CardTitle>
                  <CardDescription>
                     Defina sua carga horária e dias de trabalho para calcular sua meta diária.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-                <div>
-                    <div className="flex items-center gap-2 mb-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
                         <Label htmlFor="weekly-hours">Carga horária semanal</Label>
-                        <TooltipProvider delayDuration={0}>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-5 w-5 hover:bg-transparent">
-                                        <Info size={14} className="text-muted-foreground" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>Defina o total de horas de trabalho esperadas para a semana.</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
+                        <div className="flex items-center gap-2 mt-2">
+                            <Input
+                                id="weekly-hours"
+                                type="number"
+                                value={weeklyHours}
+                                onChange={(e) => setWeeklyHours(e.target.value)}
+                                className="w-24 bg-input border-border" />
+                            <span>horas</span>
+                        </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                    <Input
-                        id="weekly-hours"
-                        type="number"
-                        value={weeklyHours}
-                        onChange={(e) => setWeeklyHours(e.target.value)}
-                        className="w-24 bg-input border-border" />
-                    <span>horas</span>
+                     <div>
+                        <Label htmlFor="work-start-time">Horário de início</Label>
+                        <div className="flex items-center gap-2 mt-2">
+                           <Input
+                                id="work-start-time"
+                                type="time"
+                                value={workStartTime}
+                                onChange={(e) => setWorkStartTime(e.target.value)}
+                                className="w-32 bg-input border-border"
+                            />
+                        </div>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">Exemplo: 40, 44, 30 - conforme seu contrato.</p>
                 </div>
 
                 <div className="space-y-2">
@@ -249,7 +289,6 @@ export default function SettingsPage() {
                     </TooltipProvider>
                     ))}
                 </div>
-                <p className="text-xs text-muted-foreground">Selecione os dias que você trabalha para o cálculo da jornada diária.</p>
                 </div>
             
                 <Card className="border-primary/50 bg-primary/10">
@@ -263,52 +302,53 @@ export default function SettingsPage() {
                 </CardContent>
                 </Card>
             </CardContent>
-            {hasChanges && (
-                <CardFooter>
-                    <Button onClick={handleSave} className="ml-auto">
-                        <Save className="mr-2 h-4 w-4" />
-                        Salvar Alterações
-                    </Button>
-                </CardFooter>
-            )}
         </Card>
 
         <Card className="animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-200">
              <CardHeader>
                 <CardTitle className="flex items-center gap-3">
-                    <Clock className="text-primary"/>
-                    Exibição
+                    <Bell className="text-primary"/>
+                    Notificações e Exibição
                 </CardTitle>
+                <CardDescription>
+                    Personalize os lembretes e o formato de exibição das horas.
+                </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-6 pt-6">
+                <div className="flex justify-between items-center">
+                    <div>
+                        <Label htmlFor="reminders" className="font-semibold">Lembretes de ponto</Label>
+                        <p className="text-sm text-muted-foreground">Receba notificações para registrar os pontos.</p>
+                    </div>
+                    <Switch id="reminders" checked={enableReminders} onCheckedChange={handleEnableRemindersChange} />
+                </div>
                  <div className="flex justify-between items-center">
                     <div>
-                        <Label htmlFor="time-format">Formato de hora</Label>
-                        <p className="text-sm text-muted-foreground">12h (AM/PM) ou 24h</p>
+                        <Label htmlFor="break-duration">Duração do intervalo (padrão)</Label>
+                         <p className="text-sm text-muted-foreground">Usado para o lembrete de volta do intervalo.</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Input
+                            id="break-duration"
+                            type="number"
+                            value={breakDuration}
+                            onChange={(e) => setBreakDuration(e.target.value)}
+                            className="w-24 bg-input border-border"
+                            disabled={!enableReminders}
+                        />
+                        <span>minutos</span>
+                    </div>
+                </div>
+                 <div className="flex justify-between items-center">
+                    <div>
+                        <Label htmlFor="time-format">Formato de hora (12h/24h)</Label>
+                         <p className="text-sm text-muted-foreground">Escolha como as horas são exibidas.</p>
                     </div>
                     <div className="flex items-center gap-2">
                         <span className={`text-sm transition-colors ${!is24hFormat ? 'text-foreground' : 'text-muted-foreground'}`}>12h</span>
                         <Switch id="time-format" checked={is24hFormat} onCheckedChange={setIs24hFormat} />
                         <span className={`text-sm transition-colors ${is24hFormat ? 'text-foreground' : 'text-muted-foreground'}`}>24h</span>
                     </div>
-                </div>
-            </CardContent>
-        </Card>
-        
-        <Card className="animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-300">
-            <CardHeader>
-                <CardTitle className="flex items-center gap-3">
-                    <Bell className="text-primary"/>
-                    Notificações
-                </CardTitle>
-            </CardHeader>
-            <CardContent>
-                <div className="flex justify-between items-center">
-                    <div>
-                        <Label htmlFor="reminders" className="cursor-pointer">Lembretes de ponto</Label>
-                        <p className="text-sm text-muted-foreground">Receba notificações para registrar o ponto</p>
-                    </div>
-                    <Switch id="reminders" checked={enableReminders} onCheckedChange={setEnableReminders} />
                 </div>
             </CardContent>
         </Card>

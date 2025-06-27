@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged, signOut, User } from "firebase/auth";
@@ -11,7 +11,6 @@ import {
   differenceInMilliseconds,
   isSameDay,
   eachDayOfInterval,
-  isBefore,
   startOfToday,
   startOfDay,
   parse,
@@ -90,6 +89,16 @@ export default function RegistroFacilPage() {
   const [showEarlyLeaveWarning, setShowEarlyLeaveWarning] = useState(false);
   const [is24hFormat, setIs24hFormat] = useState(true);
 
+  const notificationTimeouts = useRef<{ [key: string]: number }>({});
+  const hasNotifiedClockOut = useRef(false);
+
+  useEffect(() => {
+    // Clear all notification timeouts on component unmount
+    return () => {
+      Object.values(notificationTimeouts.current).forEach(clearTimeout);
+    };
+  }, []);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
@@ -147,14 +156,6 @@ export default function RegistroFacilPage() {
     const timer = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(timer);
   }, [isLoading]);
-  
-  const timeFormatString = useMemo(() => is24hFormat ? 'HH:mm' : 'hh:mm a', [is24hFormat]);
-  const timeFormatStringWithSeconds = useMemo(() => is24hFormat ? 'HH:mm:ss' : 'hh:mm:ss a', [is24hFormat]);
-
-  const formatTime = useCallback((date: Date | string) => {
-      const dateObj = typeof date === 'string' ? new Date(date) : date;
-      return format(dateObj, timeFormatString, { locale: ptBR });
-  }, [timeFormatString]);
 
   const { workdayStatus, currentEntry } = useMemo(() => {
     const todayEntries = timeEntries
@@ -181,6 +182,106 @@ export default function RegistroFacilPage() {
     
     return { workdayStatus: status, currentEntry: activeEntry || null };
   }, [timeEntries, now]);
+
+  const dailyHours = useMemo(() => {
+    let total = timeEntries
+      .filter(e => e.endTime && isSameDay(new Date(e.startTime), now))
+      .reduce((acc, entry) => {
+        return acc + differenceInMilliseconds(new Date(entry.endTime!), new Date(entry.startTime));
+      }, 0);
+    
+    if (currentEntry) {
+      total += differenceInMilliseconds(now, new Date(currentEntry.startTime));
+    }
+    
+    return total;
+  }, [timeEntries, now, currentEntry]);
+  
+  const elapsedTime = useMemo(() => {
+    if (currentEntry) {
+      return differenceInMilliseconds(now, new Date(currentEntry.startTime));
+    }
+    return 0;
+  }, [now, currentEntry]);
+
+  // Effect for scheduling notifications
+  useEffect(() => {
+    const canNotify = settings?.enableReminders && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted';
+
+    const clearNotification = (key: string) => {
+      if (notificationTimeouts.current[key]) {
+        clearTimeout(notificationTimeouts.current[key]);
+        delete notificationTimeouts.current[key];
+      }
+    };
+
+    if (!canNotify) {
+      Object.keys(notificationTimeouts.current).forEach(clearNotification);
+      return;
+    }
+
+    const showNotification = (title: string, options?: NotificationOptions) => {
+      new Notification(title, { ...options, icon: '/icon.svg', tag: title });
+    };
+
+    // Reset clock-out flag when work is finished
+    if (workdayStatus === 'FINISHED') {
+      hasNotifiedClockOut.current = false;
+    }
+
+    // 1. Clock-out reminder
+    const workHoursMillis = workHoursPerDay * 3600000;
+    const isGoalMet = dailyHours >= workHoursMillis && workHoursMillis > 0;
+    if (workdayStatus === 'WORKING_AFTER_BREAK' && isGoalMet && !hasNotifiedClockOut.current) {
+      showNotification('Jornada Concluída!', { body: 'Você já completou sua carga horária de hoje. Não se esqueça de registrar a saída.' });
+      hasNotifiedClockOut.current = true;
+    }
+
+    // 2. Clock-in reminder
+    if (workdayStatus === 'NOT_STARTED' && settings.workStartTime && !notificationTimeouts.current.clockIn) {
+      const today = new Date();
+      const [hours, minutes] = settings.workStartTime.split(':').map(Number);
+      const workStartTimeOnDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), hours, minutes);
+      const dayKey = dayMap[today.getDay()];
+      if (workdays[dayKey] && today < workStartTimeOnDate) {
+        const timeoutMs = workStartTimeOnDate.getTime() - today.getTime();
+        notificationTimeouts.current.clockIn = window.setTimeout(() => {
+          const currentEntries = timeEntries.filter(e => isSameDay(new Date(e.startTime), new Date()));
+          if (currentEntries.length === 0) {
+            showNotification('Hora de começar!', { body: 'Bom dia! Não se esqueça de registrar sua entrada.' });
+          }
+          delete notificationTimeouts.current.clockIn;
+        }, timeoutMs);
+      }
+    } else if (workdayStatus !== 'NOT_STARTED') {
+      clearNotification('clockIn');
+    }
+
+    // 3. End-of-break reminder
+    if (workdayStatus === 'ON_BREAK' && settings.breakDuration && !notificationTimeouts.current.breakEnd) {
+      const breakStartEntry = timeEntries.find(e => isSameDay(new Date(e.startTime), new Date()) && e.endTime);
+      if (breakStartEntry?.endTime) {
+        const breakEndTime = new Date(new Date(breakStartEntry.endTime).getTime() + settings.breakDuration * 60000);
+        if (new Date() < breakEndTime) {
+          const timeoutMs = breakEndTime.getTime() - new Date().getTime();
+          notificationTimeouts.current.breakEnd = window.setTimeout(() => {
+            showNotification('Intervalo terminando!', { body: 'Sua pausa está quase no fim. Não se esqueça de registrar seu retorno.' });
+            delete notificationTimeouts.current.breakEnd;
+          }, timeoutMs);
+        }
+      }
+    } else if (workdayStatus !== 'ON_BREAK') {
+      clearNotification('breakEnd');
+    }
+  }, [settings, timeEntries, workdayStatus, workHoursPerDay, dailyHours, workdays]);
+  
+  const timeFormatString = useMemo(() => is24hFormat ? 'HH:mm' : 'hh:mm a', [is24hFormat]);
+  const timeFormatStringWithSeconds = useMemo(() => is24hFormat ? 'HH:mm:ss' : 'hh:mm:ss a', [is24hFormat]);
+
+  const formatTime = useCallback((date: Date | string) => {
+      const dateObj = typeof date === 'string' ? new Date(date) : date;
+      return format(dateObj, timeFormatString, { locale: ptBR });
+  }, [timeFormatString]);
 
   const handleClockAction = useCallback(async () => {
     if (!user || workdayStatus === 'FINISHED') return;
@@ -223,27 +324,6 @@ export default function RegistroFacilPage() {
     }
   }, [timeEntries, toast, user, workdayStatus]);
 
-  const elapsedTime = useMemo(() => {
-    if (currentEntry) {
-      return differenceInMilliseconds(now, new Date(currentEntry.startTime));
-    }
-    return 0;
-  }, [now, currentEntry]);
-
-  const dailyHours = useMemo(() => {
-    let total = timeEntries
-      .filter(e => e.endTime && isSameDay(new Date(e.startTime), now))
-      .reduce((acc, entry) => {
-        return acc + differenceInMilliseconds(new Date(entry.endTime!), new Date(entry.startTime));
-      }, 0);
-    
-    if (currentEntry) {
-      total += differenceInMilliseconds(now, new Date(currentEntry.startTime));
-    }
-    
-    return total;
-  }, [timeEntries, now, currentEntry]);
-
   const progress = useMemo(() => {
     const totalMilliseconds = workHoursPerDay * 60 * 60 * 1000;
     if (totalMilliseconds === 0) return 0;
@@ -273,6 +353,10 @@ export default function RegistroFacilPage() {
       const dayKey = dayMap[dayIndex];
       return workdays[dayKey];
     };
+    
+    const todayEntries = timeEntries.filter(e => isSameDay(new Date(e.startTime), today));
+    const hasActiveEntryForToday = todayEntries.some(e => !e.endTime);
+    const isTodayFinished = todayEntries.length > 0 && !hasActiveEntryForToday;
 
     allDaysToConsider.forEach(day => {
       const isToday = isSameDay(day, today);
@@ -285,7 +369,7 @@ export default function RegistroFacilPage() {
       totalWorkedMs += dailyTotal;
 
       if (isConfiguredWorkday(day)) {
-        if (!isToday || (isToday && workdayStatus === 'FINISHED')) {
+        if (!isToday || (isToday && isTodayFinished)) {
           totalTargetMs += workHoursPerDay * 60 * 60 * 1000;
         }
       }
@@ -295,7 +379,7 @@ export default function RegistroFacilPage() {
     const finalBankMs = bankMs + (settings?.timeBankAdjustment || 0);
     const sign = finalBankMs >= 0 ? "+" : "-";
     return `${sign}${formatDuration(Math.abs(finalBankMs))}`;
-  }, [timeEntries, workHoursPerDay, workdays, settings, workdayStatus]);
+  }, [timeEntries, workHoursPerDay, workdays, settings]);
 
   const lastEvent = useMemo(() => {
     const todayEntries = timeEntries
