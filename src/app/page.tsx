@@ -75,11 +75,6 @@ const formatDuration = (milliseconds: number) => {
   )}m`;
 };
 
-const formatTime = (date: Date | string) => {
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
-  return format(dateObj, "HH:mm");
-};
-
 export default function RegistroFacilPage() {
   const router = useRouter();
   const { toast } = useToast();
@@ -93,6 +88,7 @@ export default function RegistroFacilPage() {
   const [workdays, setWorkdays] = useState<Workdays>(defaultWorkdays);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [showEarlyLeaveWarning, setShowEarlyLeaveWarning] = useState(false);
+  const [is24hFormat, setIs24hFormat] = useState(true);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -129,6 +125,7 @@ export default function RegistroFacilPage() {
           } else {
             setWorkHoursPerDay(0);
           }
+          setIs24hFormat(settingsData.is24hFormat ?? true);
         }
       } catch (error) {
         console.error("Failed to fetch data:", error);
@@ -151,6 +148,14 @@ export default function RegistroFacilPage() {
     return () => clearInterval(timer);
   }, [isLoading]);
   
+  const timeFormatString = useMemo(() => is24hFormat ? 'HH:mm' : 'hh:mm a', [is24hFormat]);
+  const timeFormatStringWithSeconds = useMemo(() => is24hFormat ? 'HH:mm:ss' : 'hh:mm:ss a', [is24hFormat]);
+
+  const formatTime = useCallback((date: Date | string) => {
+      const dateObj = typeof date === 'string' ? new Date(date) : date;
+      return format(dateObj, timeFormatString, { locale: ptBR });
+  }, [timeFormatString]);
+
   const { workdayStatus, currentEntry } = useMemo(() => {
     const todayEntries = timeEntries
       .filter(entry => isSameDay(new Date(entry.startTime), now))
@@ -499,7 +504,7 @@ export default function RegistroFacilPage() {
       default:
         return 'Status desconhecido';
     }
-  }, [workdayStatus, currentEntry, timeEntries, now]);
+  }, [workdayStatus, currentEntry, timeEntries, now, formatTime]);
   
   const handleLogout = async () => {
     try {
@@ -572,7 +577,7 @@ export default function RegistroFacilPage() {
                 : 'text-4xl sm:text-5xl'
             }`}
           >
-            {format(now, 'HH:mm:ss')}
+            {format(now, timeFormatStringWithSeconds, { locale: ptBR })}
           </div>
         </div>
         
@@ -667,7 +672,7 @@ export default function RegistroFacilPage() {
                                                                         className="w-24 h-8 bg-input"
                                                                     />
                                                                 ) : (
-                                                                    <span>{format(new Date(event.time), 'HH:mm:ss')}</span>
+                                                                    <span>{format(new Date(event.time), timeFormatStringWithSeconds, { locale: ptBR })}</span>
                                                                 )}
                                                             </div>
                                                         </div>

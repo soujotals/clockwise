@@ -87,6 +87,7 @@ export default function ReportsPage() {
     const [adjustmentSign, setAdjustmentSign] = useState('+');
     const [month, setMonth] = useState(new Date());
     const [selectedDay, setSelectedDay] = useState<Date | undefined>();
+    const [is24hFormat, setIs24hFormat] = useState(true);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -120,11 +121,14 @@ export default function ReportsPage() {
                 } else {
                     setWorkHoursPerDay(0);
                 }
+                setIs24hFormat(settingsData.is24hFormat ?? true);
             }
             setIsLoading(false);
         };
         fetchData();
     }, [user]);
+
+    const timeFormatStringWithSeconds = useMemo(() => is24hFormat ? 'HH:mm:ss' : 'hh:mm:ss a', [is24hFormat]);
     
     const dailyTotals = useMemo(() => {
         const totals: Record<string, number> = {};
@@ -369,7 +373,7 @@ export default function ReportsPage() {
                                                             <Clock size={16} className="text-muted-foreground" />
                                                             <span>{event.label}</span>
                                                         </div>
-                                                        <span className="font-mono text-foreground bg-muted px-2 py-1 rounded-md text-xs">{format(new Date(event.time), "HH:mm:ss")}</span>
+                                                        <span className="font-mono text-foreground bg-muted px-2 py-1 rounded-md text-xs">{format(new Date(event.time), timeFormatStringWithSeconds, { locale: ptBR })}</span>
                                                     </div>
                                                 ))}
                                                 <Separator className="my-4"/>

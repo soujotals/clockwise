@@ -61,7 +61,9 @@ export default function SettingsPage() {
   const [workdays, setWorkdays] = useState<Workdays>(defaultWorkdays);
   const [initialWorkdays, setInitialWorkdays] = useState<Workdays>(defaultWorkdays);
   const [is24hFormat, setIs24hFormat] = useState(true);
+  const [initialIs24hFormat, setInitialIs24hFormat] = useState(true);
   const [enableReminders, setEnableReminders] = useState(true);
+  const [initialEnableReminders, setInitialEnableReminders] = useState(true);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -85,9 +87,18 @@ export default function SettingsPage() {
         const hours = settings.weeklyHours || 40;
         setWeeklyHours(hours);
         setInitialWeeklyHours(hours);
+
         const savedWorkdays = settings.workdays || defaultWorkdays;
         setWorkdays(savedWorkdays);
         setInitialWorkdays(savedWorkdays);
+        
+        const savedIs24hFormat = settings.is24hFormat ?? true;
+        setIs24hFormat(savedIs24hFormat);
+        setInitialIs24hFormat(savedIs24hFormat);
+        
+        const savedEnableReminders = settings.enableReminders ?? true;
+        setEnableReminders(savedEnableReminders);
+        setInitialEnableReminders(savedEnableReminders);
       }
       setIsLoading(false);
     };
@@ -103,12 +114,16 @@ export default function SettingsPage() {
     const newSettings: AppSettings = {
       weeklyHours: Number(weeklyHours),
       workdays,
+      is24hFormat,
+      enableReminders,
     };
 
     try {
       await saveSettings(user.uid, newSettings);
       setInitialWeeklyHours(Number(weeklyHours));
       setInitialWorkdays(workdays);
+      setInitialIs24hFormat(is24hFormat);
+      setInitialEnableReminders(enableReminders);
       toast({
         title: "Configurações Salvas",
         description: "Suas preferências foram atualizadas com sucesso.",
@@ -125,7 +140,9 @@ export default function SettingsPage() {
 
   const weeklyHoursChanged = Number(weeklyHours) !== Number(initialWeeklyHours);
   const workdaysChanged = JSON.stringify(workdays) !== JSON.stringify(initialWorkdays);
-  const hasChanges = weeklyHoursChanged || workdaysChanged;
+  const formatChanged = is24hFormat !== initialIs24hFormat;
+  const remindersChanged = enableReminders !== initialEnableReminders;
+  const hasChanges = weeklyHoursChanged || workdaysChanged || formatChanged || remindersChanged;
 
   const dailyHoursDistribution = useMemo(() => {
     const numberOfWorkDays = Object.values(workdays).filter(Boolean).length;

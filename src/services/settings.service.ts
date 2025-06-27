@@ -15,6 +15,8 @@ export type AppSettings = {
   weeklyHours: number;
   workdays: Workdays;
   timeBankAdjustment?: number; // Adjustment in milliseconds
+  is24hFormat?: boolean;
+  enableReminders?: boolean;
 };
 
 const getSettingsDocRef = (userId: string) => doc(db, `users/${userId}/settings`, 'userSettings');
