@@ -43,7 +43,7 @@ export default function LoginPage() {
     <main className="flex items-center justify-center min-h-screen bg-background p-4 font-sans">
       <Card className="w-full max-w-sm animate-in fade-in-0 zoom-in-95 duration-500">
         <CardHeader className="text-center">
-          <div className="mx-auto h-16 w-16 text-primary">
+          <div className="mx-auto h-20 w-20 text-primary">
             <Logo />
           </div>
           <CardTitle className="mt-6 text-2xl">Bem-vindo de volta!</CardTitle>

@@ -27,7 +27,6 @@ import {
   differenceInMilliseconds,
   isSameDay,
   eachDayOfInterval,
-  isBefore,
   startOfToday,
   startOfDay,
 } from 'date-fns';
@@ -179,6 +178,8 @@ export default function ReportsPage() {
 
         allDaysToConsider.forEach(day => {
             const isToday = isSameDay(day, today);
+            
+            if (isToday && !isTodayFinished) return;
 
             const entriesOnDay = timeEntries.filter(e => isSameDay(new Date(e.startTime), day) && e.endTime);
             const dailyTotal = entriesOnDay.reduce((total, entry) => {
@@ -187,9 +188,7 @@ export default function ReportsPage() {
             totalWorkedMs += dailyTotal;
 
             if (isConfiguredWorkday(day)) {
-                if (!isToday || (isToday && isTodayFinished)) {
-                   totalTargetMs += workHoursPerDay * 60 * 60 * 1000;
-                }
+               totalTargetMs += workHoursPerDay * 60 * 60 * 1000;
             }
         });
         
