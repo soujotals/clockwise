@@ -289,7 +289,7 @@ export default function ReportsPage() {
                 <h1 className="text-xl font-bold ml-4">Relatórios</h1>
             </header>
 
-            <main className="p-4 md:p-6 space-y-8 max-w-4xl mx-auto w-full flex-grow animate-in fade-in-0 duration-500">
+            <main className="p-4 md:p-6 space-y-8 max-w-5xl mx-auto w-full flex-grow animate-in fade-in-0 duration-500">
                 <section className="space-y-6 animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-100">
                     <h2 className="text-lg font-semibold flex items-center gap-3">
                         <TrendingUp className="text-primary" />
@@ -319,8 +319,8 @@ export default function ReportsPage() {
                         Registros por Dia
                     </h2>
                     <Card>
-                       <CardContent className="flex flex-col md:flex-row p-2 md:p-4 gap-4">
-                            <div className="md:w-auto flex justify-center">
+                       <CardContent className="flex flex-col md:flex-row p-0 md:p-4 gap-4 md:gap-8">
+                            <div className="p-4 pb-0 md:p-0 md:w-auto flex justify-center">
                                 <Calendar
                                     mode="single"
                                     selected={selectedDay}
@@ -357,7 +357,7 @@ export default function ReportsPage() {
                                 />
                             </div>
                             <Separator orientation="vertical" className="mx-2 hidden md:block" />
-                            <div className="flex-1 md:min-w-[280px] p-2 md:p-0">
+                            <div className="flex-1 md:min-w-[280px] p-4 md:p-0">
                                 {selectedDayDetails ? (
                                     <div className="animate-in fade-in-0">
                                         <h3 className="text-base font-semibold mb-4">

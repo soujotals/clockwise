@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   title: "Registro Fácil",
   description: "Um aplicativo simples para registro de ponto.",
   manifest: "/manifest.json",
-  themeColor: "#6A3DE8",
+  themeColor: "#3B82F6",
 };
 
 export default function RootLayout({

@@ -28,6 +28,7 @@ import {
   Pencil,
   Coffee,
   CheckCircle,
+  Timer,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -78,6 +79,7 @@ export default function RegistroFacilPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [user, setUser] = useState<User | null>(null);
+  const [username, setUsername] = useState('Usuário');
   const [authLoading, setAuthLoading] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [now, setNow] = useState(new Date());
@@ -96,6 +98,9 @@ export default function RegistroFacilPage() {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
+        const emailName = currentUser.email?.split('@')[0];
+        const capitalizedUsername = emailName ? emailName.charAt(0).toUpperCase() + emailName.slice(1) : 'Usuário';
+        setUsername(capitalizedUsername);
       } else {
         router.replace('/login');
       }
@@ -403,6 +408,37 @@ export default function RegistroFacilPage() {
     return { label: last.type, time: last.time };
   }, [timeEntries, now]);
   
+    const predictedEndTime = useMemo(() => {
+    if (!settings || workdayStatus === 'NOT_STARTED' || workdayStatus === 'FINISHED') {
+        return null;
+    }
+
+    const todayEntries = timeEntries
+        .filter(entry => isSameDay(new Date(entry.startTime), now))
+        .sort((a,b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+    
+    if (todayEntries.length === 0) return null;
+
+    const firstEntryTime = new Date(todayEntries[0].startTime);
+    const workDurationMs = workHoursPerDay * 3600000;
+    
+    const breakAlreadyTakenMs = timeEntries
+      .filter(e => isSameDay(new Date(e.startTime), now) && e.endTime && todayEntries.length > 1)
+      .reduce((total, entry, index) => {
+        if (index === 0) { // First entry of the day is clock-in -> break start
+            return total + differenceInMilliseconds(new Date(), new Date(entry.endTime!));
+        }
+        return total;
+      }, 0);
+      
+    const expectedBreakMs = (settings.breakDuration || 0) * 60000;
+    const remainingBreakMs = workdayStatus === 'WORKING_BEFORE_BREAK' ? expectedBreakMs : Math.max(0, expectedBreakMs - breakAlreadyTakenMs);
+
+    const endTime = new Date(firstEntryTime.getTime() + workDurationMs + remainingBreakMs);
+    return endTime;
+
+  }, [timeEntries, now, settings, workHoursPerDay, workdayStatus]);
+
   const generalHistory = useMemo(() => {
     const entriesByDay = timeEntries.reduce((acc, entry) => {
       const entryDate = new Date(entry.startTime);
@@ -606,91 +642,106 @@ export default function RegistroFacilPage() {
   }
 
   return (
-    <main className="bg-background text-foreground flex flex-col items-center min-h-screen p-4 font-sans">
-      <div className="w-full max-w-md mx-auto flex flex-col items-center justify-center flex-grow space-y-6 text-center">
-        <div className="text-center animate-in fade-in-0 slide-in-from-top-4 duration-500">
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight">Registro Fácil</h1>
-          <p className="text-muted-foreground capitalize mt-1">
-            {format(now, "eeee, dd/MM/yyyy", { locale: ptBR })}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 text-lg text-muted-foreground animate-in fade-in-0 slide-in-from-top-4 duration-500 delay-100">
-          <Clock size={18} />
-          <span>{statusLabel}</span>
-        </div>
-
-        <div className="w-full animate-in fade-in-0 slide-in-from-top-4 duration-500 delay-200">
-          <div className="flex justify-between items-center mb-1 text-sm">
-            <span className="flex items-center gap-2 font-semibold">
-              <TrendingUp size={18} className="text-primary" /> Progresso do dia
-            </span>
-            <span className="text-muted-foreground font-mono">
-              {formatDuration(dailyHours)} / {workHoursPerDay > 0 ? `${formatDuration(workHoursPerDay * 3600000)}` : 'N/A'}
-            </span>
-          </div>
-          <Progress value={progress} className="h-2" />
-          <p className="text-center text-sm mt-1 text-muted-foreground">
-            {progress.toFixed(0)}% concluído
-          </p>
-        </div>
-
-        <Button
-          onClick={handleMainButtonClick}
-          disabled={buttonConfig.disabled}
-          className="w-48 h-48 md:w-56 md:h-56 rounded-full flex flex-col items-center justify-center text-xl md:text-2xl font-bold shadow-2xl shadow-primary/20 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-300 ease-in-out transform hover:scale-105 disabled:bg-muted disabled:scale-100 disabled:cursor-not-allowed animate-in fade-in-0 zoom-in-95 duration-500 delay-300"
-        >
-          <buttonConfig.icon className="mb-2" size={40} />
-          <span>{buttonConfig.text[0]}</span>
-          <span className="text-base font-normal">{buttonConfig.text[1]}</span>
-        </Button>
-
-        <div className="flex h-28 flex-col items-center justify-center">
-          {(workdayStatus === 'WORKING_BEFORE_BREAK' || workdayStatus === 'WORKING_AFTER_BREAK') && (
-            <div className="animate-in fade-in-0 delay-300 duration-500 text-4xl sm:text-5xl font-mono tracking-widest">
-              {formatDuration(elapsedTime)}
-            </div>
-          )}
-          <div
-            className={`animate-in fade-in-0 delay-300 duration-500 font-mono tracking-widest text-muted-foreground ${
-              workdayStatus === 'WORKING_BEFORE_BREAK' || workdayStatus === 'WORKING_AFTER_BREAK'
-                ? 'text-lg mt-1'
-                : 'text-4xl sm:text-5xl'
-            }`}
-          >
-            {format(now, timeFormatStringWithSeconds, { locale: ptBR })}
-          </div>
-        </div>
+    <main className="bg-background text-foreground flex flex-col min-h-screen p-4 md:p-6 font-sans">
+      <div className="w-full max-w-lg mx-auto flex flex-col items-center justify-center flex-grow space-y-6">
         
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-400">
-          <Card className="w-full bg-card">
-            <CardContent className="p-4 flex justify-between items-center">
-              <div>
-                <p className="text-sm text-muted-foreground">Último registro</p>
-                <p className="text-lg font-semibold">
-                  {lastEvent.time ? `${lastEvent.label} ${formatTime(lastEvent.time)}` : lastEvent.label}
-                </p>
-              </div>
-              <Clock size={24} className="text-muted-foreground" />
-            </CardContent>
-          </Card>
-          <Card className="w-full bg-card">
-            <CardContent className="p-4 flex justify-between items-center">
-              <div>
-                <p className="text-sm text-muted-foreground">Banco de horas</p>
-                <p className={`text-lg font-semibold ${timeBank.startsWith('+') ? 'text-primary' : 'text-destructive'}`}>
-                  {timeBank}
-                </p>
-              </div>
-              <TrendingUp size={24} className={`${timeBank.startsWith('+') ? 'text-primary' : 'text-destructive'}`} />
-            </CardContent>
-          </Card>
-        </div>
+        <header className="w-full flex justify-between items-center animate-in fade-in-0 duration-500">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Olá, {username}!</h1>
+            <p className="text-muted-foreground capitalize">
+              {format(now, "eeee, dd 'de' MMMM", { locale: ptBR })}
+            </p>
+          </div>
+          <Button variant="ghost" size="icon" onClick={handleLogout}>
+            <LogOut className="h-5 w-5" />
+          </Button>
+        </header>
 
-        <div className="flex flex-wrap justify-center gap-4 pt-4 animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-500">
+        <section className="w-full text-center space-y-4">
+          <p className="text-lg text-muted-foreground animate-in fade-in-0 duration-500 delay-100">{statusLabel}</p>
+          <Button
+            onClick={handleMainButtonClick}
+            disabled={buttonConfig.disabled}
+            className="w-48 h-48 rounded-full flex flex-col items-center justify-center text-xl font-bold shadow-2xl shadow-primary/20 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-300 ease-in-out transform hover:scale-105 disabled:bg-muted disabled:scale-100 disabled:cursor-not-allowed animate-in fade-in-0 zoom-in-95 duration-500 delay-300"
+          >
+            <buttonConfig.icon className="mb-2" size={40} />
+            <span>{buttonConfig.text[0]}</span>
+            <span className="text-base font-normal">{buttonConfig.text[1]}</span>
+          </Button>
+          <div className="flex h-24 flex-col items-center justify-center animate-in fade-in-0 duration-500 delay-200">
+            {(workdayStatus === 'WORKING_BEFORE_BREAK' || workdayStatus === 'WORKING_AFTER_BREAK') && (
+              <div className="text-4xl font-mono tracking-widest">
+                {formatDuration(elapsedTime)}
+              </div>
+            )}
+            <div
+              className={`font-mono tracking-widest text-muted-foreground ${
+                workdayStatus === 'WORKING_BEFORE_BREAK' || workdayStatus === 'WORKING_AFTER_BREAK'
+                  ? 'text-lg mt-1'
+                  : 'text-4xl sm:text-5xl'
+              }`}
+            >
+              {format(now, timeFormatStringWithSeconds, { locale: ptBR })}
+            </div>
+          </div>
+        </section>
+
+        <section className="w-full grid grid-cols-2 gap-4 animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-400">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Progresso Diário</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{progress.toFixed(0)}%</div>
+              <p className="text-xs text-muted-foreground">{formatDuration(dailyHours)} de {workHoursPerDay > 0 ? `${formatDuration(workHoursPerDay * 3600000)}` : 'N/A'}</p>
+              <Progress value={progress} className="h-2 mt-2" />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Banco de Horas</CardTitle>
+              <Clock className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+               <div className={`text-2xl font-bold ${timeBank.startsWith('+') ? 'text-primary' : 'text-destructive'}`}>
+                  {timeBank}
+                </div>
+              <p className="text-xs text-muted-foreground">Saldo acumulado</p>
+            </CardContent>
+          </Card>
+           <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Último Registro</CardTitle>
+              <LogIn className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+               <div className="text-lg font-semibold">
+                  {lastEvent.time ? `${lastEvent.label}` : lastEvent.label}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                    {lastEvent.time ? `às ${formatTime(lastEvent.time)}` : " "}
+                </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Previsão de Saída</CardTitle>
+              <Timer className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {predictedEndTime ? formatTime(predictedEndTime) : '--:--'}
+              </div>
+              <p className="text-xs text-muted-foreground">Horário estimado de término</p>
+            </CardContent>
+          </Card>
+        </section>
+
+        <nav className="w-full flex flex-col sm:flex-row gap-2 pt-4 animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-500">
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="outline">
+              <Button variant="outline" className="w-full">
                 <BarChart className="mr-2 h-4 w-4" /> Histórico
               </Button>
             </AlertDialogTrigger>
@@ -804,22 +855,20 @@ export default function RegistroFacilPage() {
             </AlertDialogContent>
           </AlertDialog>
           
-          <Button variant="outline" asChild>
+          <Button variant="outline" className="w-full" asChild>
             <Link href="/reports">
               <TrendingUp className="mr-2 h-4 w-4" /> Relatórios
             </Link>
           </Button>
 
-          <Button variant="outline" asChild>
+          <Button variant="outline" className="w-full" asChild>
             <Link href="/settings">
               <Settings className="mr-2 h-4 w-4" /> Configurações
             </Link>
           </Button>
-          <Button variant="outline" onClick={handleLogout}>
-              <LogOut className="mr-2 h-4 w-4" /> Sair
-          </Button>
-        </div>
+        </nav>
       </div>
+
       <AlertDialog open={showEarlyLeaveWarning} onOpenChange={setShowEarlyLeaveWarning}>
         <AlertDialogContent>
           <AlertDialogHeader>
