@@ -400,7 +400,7 @@ export default function Dashboard({ user }: DashboardProps) {
     return { label: last.type, time: last.time };
   }, [timeEntries, now]);
   
-    const predictedEndTime = useMemo(() => {
+  const predictedEndTime = useMemo(() => {
     if (!settings || workdayStatus === 'NOT_STARTED' || workdayStatus === 'FINISHED') {
         return null;
     }
@@ -414,19 +414,19 @@ export default function Dashboard({ user }: DashboardProps) {
     const firstEntryTime = new Date(todayEntries[0].startTime);
     const workDurationMs = workHoursPerDay * 3600000;
     
-    const breakAlreadyTakenMs = timeEntries
-      .filter(e => isSameDay(new Date(e.startTime), now) && e.endTime && todayEntries.length > 1)
-      .reduce((total, entry, index) => {
-        if (index === 0) {
-            return total + differenceInMilliseconds(new Date(), new Date(entry.endTime!));
-        }
-        return total;
-      }, 0);
-      
-    const expectedBreakMs = (settings.breakDuration || 0) * 60000;
-    const remainingBreakMs = workdayStatus === 'WORKING_BEFORE_BREAK' ? expectedBreakMs : Math.max(0, expectedBreakMs - breakAlreadyTakenMs);
-
-    const endTime = new Date(firstEntryTime.getTime() + workDurationMs + remainingBreakMs);
+    let breakDurationMs = 0;
+            
+    // If the break is finished, calculate its actual duration.
+    if ((workdayStatus === 'WORKING_AFTER_BREAK' || workdayStatus === 'FINISHED') && todayEntries.length > 1 && todayEntries[0].endTime && todayEntries[1]?.startTime) {
+         const breakStartTime = new Date(todayEntries[0].endTime);
+         const breakEndTime = new Date(todayEntries[1].startTime);
+         breakDurationMs = differenceInMilliseconds(breakEndTime, breakStartTime);
+    } else {
+         // Otherwise, use the expected break duration from settings.
+         breakDurationMs = (settings.breakDuration || 0) * 60000;
+    }
+    
+    const endTime = new Date(firstEntryTime.getTime() + workDurationMs + breakDurationMs);
     return endTime;
 
   }, [timeEntries, now, settings, workHoursPerDay, workdayStatus]);
