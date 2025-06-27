@@ -765,7 +765,7 @@ export default function Dashboard({ user }: DashboardProps) {
                                 <Card key={day} className="bg-muted transition-all hover:shadow-md">
                                     <CardHeader className="flex flex-row items-center justify-between p-4">
                                         <div>
-                                            <CardTitle className="text-base font-bold">
+                                            <CardTitle className="text-base font-bold text-primary">
                                                 {format(dayDate, "PPP", { locale: ptBR })}
                                             </CardTitle>
                                             <CardDescription>
