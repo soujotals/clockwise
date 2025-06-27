@@ -270,6 +270,22 @@ export default function SettingsPage() {
                         </div>
                     </div>
                 </div>
+                 <div className="flex justify-between items-center">
+                    <div>
+                        <Label htmlFor="break-duration">Duração do intervalo (padrão)</Label>
+                         <p className="text-sm text-muted-foreground">Define a duração padrão do seu intervalo em minutos.</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Input
+                            id="break-duration"
+                            type="number"
+                            value={breakDuration}
+                            onChange={(e) => setBreakDuration(e.target.value)}
+                            className="w-24 bg-input border-border"
+                        />
+                        <span>minutos</span>
+                    </div>
+                </div>
 
                 <div className="space-y-2">
                 <Label>Dias da semana</Label>
@@ -326,23 +342,6 @@ export default function SettingsPage() {
                         <p className="text-sm text-muted-foreground">Receba notificações para registrar os pontos.</p>
                     </div>
                     <Switch id="reminders" checked={enableReminders} onCheckedChange={handleEnableRemindersChange} />
-                </div>
-                 <div className="flex justify-between items-center">
-                    <div>
-                        <Label htmlFor="break-duration">Duração do intervalo (padrão)</Label>
-                         <p className="text-sm text-muted-foreground">Usado para o lembrete de volta do intervalo.</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Input
-                            id="break-duration"
-                            type="number"
-                            value={breakDuration}
-                            onChange={(e) => setBreakDuration(e.target.value)}
-                            className="w-24 bg-input border-border"
-                            disabled={!enableReminders}
-                        />
-                        <span>minutos</span>
-                    </div>
                 </div>
                  <div className="flex justify-between items-center">
                     <div>
