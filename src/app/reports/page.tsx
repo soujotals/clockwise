@@ -280,47 +280,47 @@ export default function ReportsPage() {
     return (
         <div className="bg-background text-foreground min-h-screen flex flex-col font-sans">
             <header className="flex items-center p-4 border-b border-border sticky top-0 bg-background/95 backdrop-blur z-10">
-                <Button variant="ghost" size="icon" asChild>
+                <Button variant="ghost" size="icon" asChild className="mr-2 shrink-0">
                 <Link href="/">
-                    <ArrowLeft />
+                    <ArrowLeft className="h-5 w-5" />
                     <span className="sr-only">Voltar</span>
                 </Link>
                 </Button>
-                <h1 className="text-xl font-bold ml-4">Relatórios</h1>
+                <h1 className="text-lg sm:text-xl font-bold truncate">Relatórios</h1>
             </header>
 
-            <main className="p-4 md:p-6 space-y-8 max-w-5xl mx-auto w-full flex-grow animate-in fade-in-0 duration-500">
-                <section className="space-y-6 animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-100">
-                    <h2 className="text-lg font-semibold flex items-center gap-3">
-                        <TrendingUp className="text-primary" />
-                        Resumo do Banco de Horas
+            <main className="p-4 space-y-6 max-w-5xl mx-auto w-full flex-grow animate-in fade-in-0 duration-500">
+                <section className="space-y-4 animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-100">
+                    <h2 className="text-base sm:text-lg font-semibold flex items-center gap-2">
+                        <TrendingUp className="text-primary h-5 w-5" />
+                        Banco de Horas
                     </h2>
 
-                    <Card className="w-full text-center relative max-w-md mx-auto transition-all hover:shadow-md">
+                    <Card className="w-full text-center relative transition-all hover:shadow-md active:scale-95">
                         <Button variant="ghost" size="icon" className="absolute top-2 right-2 text-muted-foreground hover:text-foreground" onClick={() => setIsAdjustmentDialogOpen(true)}>
                             <Pencil className="h-4 w-4" />
                             <span className="sr-only">Ajustar Saldo</span>
                         </Button>
-                        <CardHeader>
-                            <CardTitle>Saldo Atual</CardTitle>
-                            <CardDescription>Seu saldo de horas acumulado até o momento.</CardDescription>
+                        <CardHeader className="pb-4">
+                            <CardTitle className="text-lg">Saldo Atual</CardTitle>
+                            <CardDescription className="text-sm">Horas acumuladas até o momento</CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <p className={`text-4xl sm:text-5xl font-bold ${timeBank.startsWith('+') || timeBank === "00h00m" ? 'text-primary' : 'text-destructive'}`}>
+                            <p className={`text-3xl sm:text-4xl md:text-5xl font-bold ${timeBank.startsWith('+') || timeBank === "00h00m" ? 'text-primary' : 'text-destructive'}`}>
                                 {timeBank}
                             </p>
                         </CardContent>
                     </Card>
                 </section>
 
-                <section className="space-y-6 animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-200">
-                    <h2 className="text-lg font-semibold flex items-center gap-3">
-                        <CalendarIcon className="text-primary" />
+                <section className="space-y-4 animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-200">
+                    <h2 className="text-base sm:text-lg font-semibold flex items-center gap-2">
+                        <CalendarIcon className="text-primary h-5 w-5" />
                         Registros por Dia
                     </h2>
                     <Card className="transition-all hover:shadow-md">
-                       <CardContent className="flex flex-col md:flex-row p-0 md:p-4 gap-4 md:gap-8">
-                            <div className="p-4 pb-0 md:p-0 md:w-auto flex justify-center">
+                       <CardContent className="flex flex-col sm:flex-row p-0 sm:p-4 gap-3 sm:gap-6">
+                            <div className="p-4 pb-0 sm:p-0 sm:w-auto flex justify-center">
                                 <Calendar
                                     mode="single"
                                     selected={selectedDay}
@@ -328,10 +328,10 @@ export default function ReportsPage() {
                                     month={month}
                                     onMonthChange={setMonth}
                                     locale={ptBR}
-                                    className="p-0"
+                                    className="p-0 scale-90 sm:scale-100"
                                     classNames={{
-                                        head_cell: "text-muted-foreground rounded-md w-12 font-normal text-[0.8rem] text-center",
-                                        cell: "h-12 w-12 text-center text-sm p-0 relative focus-within:relative focus-within:z-20",
+                                        head_cell: "text-muted-foreground rounded-md w-10 sm:w-12 font-normal text-[0.7rem] sm:text-[0.8rem] text-center",
+                                        cell: "h-10 w-10 sm:h-12 sm:w-12 text-center text-xs sm:text-sm p-0 relative focus-within:relative focus-within:z-20",
                                         day: "h-full w-full p-1 font-normal flex flex-col items-center justify-center rounded-md relative group",
                                     }}
                                     components={{
@@ -356,8 +356,8 @@ export default function ReportsPage() {
                                     }}
                                 />
                             </div>
-                            <Separator orientation="vertical" className="mx-2 hidden md:block" />
-                            <div className="flex-1 md:min-w-[280px] p-4 md:p-0">
+                            <Separator orientation="vertical" className="mx-2 hidden sm:block" />
+                            <div className="flex-1 sm:min-w-[280px] p-4 sm:p-0">
                                 {selectedDayDetails ? (
                                     <div className="animate-in fade-in-0">
                                         <h3 className="text-base font-semibold mb-4">

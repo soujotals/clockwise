@@ -637,45 +637,45 @@ export default function Dashboard({ user }: DashboardProps) {
   }
 
   return (
-    <main className="bg-background text-foreground flex flex-col min-h-screen p-4 md:p-6 font-sans safe-top safe-bottom">
-      <div className="w-full max-w-lg mx-auto flex flex-col items-center justify-center flex-grow space-y-6">
+    <main className="bg-background text-foreground flex flex-col min-h-screen font-sans overflow-x-hidden">
+      <div className="w-full max-w-lg mx-auto flex flex-col flex-grow">
         
-        <header className="w-full flex justify-between items-center animate-in fade-in-0 duration-500">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Olá, {username}!</h1>
-            <p className="text-muted-foreground capitalize">
+        <header className="w-full flex justify-between items-center p-4 animate-in fade-in-0 duration-500">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate">Olá, {username}!</h1>
+            <p className="text-sm sm:text-base text-muted-foreground capitalize truncate">
               {format(now, "eeee, dd 'de' MMMM", { locale: ptBR })}
             </p>
           </div>
-          <Button variant="ghost" size="icon" onClick={handleLogout}>
+          <Button variant="ghost" size="icon" onClick={handleLogout} className="shrink-0 ml-2">
             <LogOut className="h-5 w-5" />
           </Button>
         </header>
 
-        <section className="w-full space-y-4">
-          <p className="text-lg text-center text-muted-foreground animate-in fade-in-0 duration-500 delay-100">{statusLabel}</p>
+        <section className="flex-1 flex flex-col justify-center px-4 space-y-6">
+          <p className="text-base sm:text-lg text-center text-muted-foreground animate-in fade-in-0 duration-500 delay-100 px-2">{statusLabel}</p>
           <div className="flex justify-center">
             <Button
               onClick={handleMainButtonClick}
               disabled={buttonConfig.disabled}
-              className="w-44 h-44 rounded-full flex flex-col items-center justify-center text-xl font-bold shadow-2xl shadow-primary/20 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-300 ease-in-out transform hover:scale-105 disabled:bg-muted disabled:scale-100 disabled:cursor-not-allowed animate-in fade-in-0 zoom-in-95 duration-500 delay-300"
+              className="w-48 h-48 sm:w-52 sm:h-52 rounded-full flex flex-col items-center justify-center text-lg sm:text-xl font-bold shadow-2xl shadow-primary/20 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-300 ease-in-out transform hover:scale-105 active:scale-95 disabled:bg-muted disabled:scale-100 disabled:cursor-not-allowed animate-in fade-in-0 zoom-in-95 duration-500 delay-300"
             >
-              <buttonConfig.icon className="mb-2" size={36} />
-              <span>{buttonConfig.text[0]}</span>
-              <span className="text-base font-normal">{buttonConfig.text[1]}</span>
+              <buttonConfig.icon className="mb-2" size={42} />
+              <span className="text-center leading-tight">{buttonConfig.text[0]}</span>
+              <span className="text-sm sm:text-base font-normal text-center leading-tight">{buttonConfig.text[1]}</span>
             </Button>
           </div>
-          <div className="flex h-24 flex-col items-center justify-center animate-in fade-in-0 duration-500 delay-200">
+          <div className="flex h-20 sm:h-24 flex-col items-center justify-center animate-in fade-in-0 duration-500 delay-200">
             {(workdayStatus === 'WORKING_BEFORE_BREAK' || workdayStatus === 'WORKING_AFTER_BREAK') && (
-              <div className="text-4xl font-mono tracking-widest">
+              <div className="text-3xl sm:text-4xl font-mono tracking-widest">
                 {formatDuration(elapsedTime)}
               </div>
             )}
             <div
               className={`font-mono tracking-widest text-muted-foreground ${
                 workdayStatus === 'WORKING_BEFORE_BREAK' || workdayStatus === 'WORKING_AFTER_BREAK'
-                  ? 'text-lg mt-1'
-                  : 'text-4xl sm:text-5xl'
+                  ? 'text-base sm:text-lg mt-1'
+                  : 'text-3xl sm:text-4xl md:text-5xl'
               }`}
             >
               {format(now, timeFormatStringWithSeconds, { locale: ptBR })}
@@ -683,63 +683,65 @@ export default function Dashboard({ user }: DashboardProps) {
           </div>
         </section>
 
-        <section className="w-full grid grid-cols-2 gap-4 animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-400">
-          <Card className="group transition-all hover:shadow-md">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Progresso Diário</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground transition-transform group-hover:scale-110" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{progress.toFixed(0)}%</div>
-              <p className="text-xs text-muted-foreground">{formatDuration(dailyHours)} de {workHoursPerDay > 0 ? `${formatDuration(workHoursPerDay * 3600000)}` : 'N/A'}</p>
-              <Progress value={progress} className="h-2 mt-2" />
-            </CardContent>
-          </Card>
-          <Card className="group transition-all hover:shadow-md">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Banco de Horas</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground transition-transform group-hover:scale-110" />
-            </CardHeader>
-            <CardContent>
-               <div className={`text-2xl font-bold ${timeBank.startsWith('+') || timeBank.startsWith('+00h00m') ? 'text-primary' : 'text-destructive'}`}>
+        <section className="px-4 pb-4">
+          <div className="grid grid-cols-2 gap-3 animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-400">
+            <Card className="group transition-all hover:shadow-md active:scale-95">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-xs sm:text-sm font-medium">Progresso Diário</CardTitle>
+                <TrendingUp className="h-4 w-4 text-muted-foreground transition-transform group-hover:scale-110" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-xl sm:text-2xl font-bold">{progress.toFixed(0)}%</div>
+                <p className="text-xs text-muted-foreground leading-tight">{formatDuration(dailyHours)} de {workHoursPerDay > 0 ? `${formatDuration(workHoursPerDay * 3600000)}` : 'N/A'}</p>
+                <Progress value={progress} className="h-2 mt-2" />
+              </CardContent>
+            </Card>
+            <Card className="group transition-all hover:shadow-md active:scale-95">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-xs sm:text-sm font-medium">Banco de Horas</CardTitle>
+                <Clock className="h-4 w-4 text-muted-foreground transition-transform group-hover:scale-110" />
+              </CardHeader>
+              <CardContent>
+                <div className={`text-xl sm:text-2xl font-bold ${timeBank.startsWith('+') || timeBank.startsWith('+00h00m') ? 'text-primary' : 'text-destructive'}`}>
                   {timeBank}
                 </div>
-              <p className="text-xs text-muted-foreground">Saldo acumulado</p>
-            </CardContent>
-          </Card>
-           <Card className="group transition-all hover:shadow-md">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Último Registro</CardTitle>
-              <LogIn className="h-4 w-4 text-muted-foreground transition-transform group-hover:scale-110" />
-            </CardHeader>
-            <CardContent>
-               <div className="text-lg font-semibold">
+                <p className="text-xs text-muted-foreground">Saldo acumulado</p>
+              </CardContent>
+            </Card>
+            <Card className="group transition-all hover:shadow-md active:scale-95">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-xs sm:text-sm font-medium">Último Registro</CardTitle>
+                <LogIn className="h-4 w-4 text-muted-foreground transition-transform group-hover:scale-110" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-base sm:text-lg font-semibold leading-tight">
                   {lastEvent.time ? `${lastEvent.label}` : lastEvent.label}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                    {lastEvent.time ? `às ${formatTime(lastEvent.time)}` : " "}
+                  {lastEvent.time ? `às ${formatTime(lastEvent.time)}` : " "}
                 </p>
-            </CardContent>
-          </Card>
-          <Card className="group transition-all hover:shadow-md">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Previsão de Saída</CardTitle>
-              <Timer className="h-4 w-4 text-muted-foreground transition-transform group-hover:scale-110" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {predictedEndTime ? formatTime(predictedEndTime) : '--:--'}
-              </div>
-              <p className="text-xs text-muted-foreground">Horário estimado de término</p>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+            <Card className="group transition-all hover:shadow-md active:scale-95">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-xs sm:text-sm font-medium">Previsão de Saída</CardTitle>
+                <Timer className="h-4 w-4 text-muted-foreground transition-transform group-hover:scale-110" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-xl sm:text-2xl font-bold">
+                  {predictedEndTime ? formatTime(predictedEndTime) : '--:--'}
+                </div>
+                <p className="text-xs text-muted-foreground">Horário estimado</p>
+              </CardContent>
+            </Card>
+          </div>
         </section>
 
-        <nav className="w-full space-y-3 pt-4 animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-500">
+        <nav className="px-4 pb-6 space-y-3 animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-500">
           <div className="flex flex-row gap-2">
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="outline" className="flex-1 border-primary/40 hover:bg-primary/10 hover:border-primary transition-all">
+                <Button variant="outline" className="flex-1 h-11 border-primary/40 hover:bg-primary/10 hover:border-primary transition-all text-sm">
                   <BarChart className="mr-2 h-4 w-4" /> Histórico
                 </Button>
               </AlertDialogTrigger>
@@ -850,23 +852,23 @@ export default function Dashboard({ user }: DashboardProps) {
             </AlertDialogContent>
             </AlertDialog>
             
-            <Button variant="outline" className="flex-1 border-primary/40 hover:bg-primary/10 hover:border-primary transition-all" asChild>
+            <Button variant="outline" className="flex-1 h-11 border-primary/40 hover:bg-primary/10 hover:border-primary transition-all text-sm" asChild>
               <Link href="/reports">
                 <TrendingUp className="mr-2 h-4 w-4" /> Relatórios
               </Link>
             </Button>
 
-            <Button variant="outline" className="flex-1 border-primary/40 hover:bg-primary/10 hover:border-primary transition-all" asChild>
+            <Button variant="outline" className="flex-1 h-11 border-primary/40 hover:bg-primary/10 hover:border-primary transition-all text-sm" asChild>
               <Link href="/settings">
-                <Settings className="mr-2 h-4 w-4" /> Configurações
+                <Settings className="mr-2 h-4 w-4" /> Config
               </Link>
             </Button>
           </div>
           
           <div className="flex justify-center">
-            <Button variant="outline" className="flex-1 border-primary/40 hover:bg-primary/10 hover:border-primary transition-all" asChild>
+            <Button variant="outline" className="w-full h-12 border-primary/40 hover:bg-primary/10 hover:border-primary transition-all font-medium" asChild>
               <Link href="/absences">
-                <FileText className="mr-2 h-4 w-4" /> Ausências
+                <FileText className="mr-2 h-4 w-4" /> Solicitações de Ausência
               </Link>
             </Button>
           </div>

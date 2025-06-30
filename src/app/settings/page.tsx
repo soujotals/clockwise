@@ -216,65 +216,68 @@ export default function SettingsPage() {
 
   return (
     <div className="bg-background text-foreground min-h-screen flex flex-col font-sans">
-      <header className="flex items-center p-4 border-b border-border sticky top-0 bg-background/95 backdrop-blur z-10">
-        <Button variant="ghost" size="icon" asChild>
-          <Link href="/">
-            <ArrowLeft />
-            <span className="sr-only">Voltar</span>
-          </Link>
-        </Button>
-        <h1 className="text-xl font-bold ml-4">Configurações</h1>
+      <header className="flex items-center justify-between p-4 border-b border-border sticky top-0 bg-background/95 backdrop-blur z-10">
+        <div className="flex items-center min-w-0">
+          <Button variant="ghost" size="icon" asChild className="mr-2 shrink-0">
+            <Link href="/">
+              <ArrowLeft className="h-5 w-5" />
+              <span className="sr-only">Voltar</span>
+            </Link>
+          </Button>
+          <h1 className="text-lg sm:text-xl font-bold truncate">Configurações</h1>
+        </div>
          {hasChanges && (
-            <Button onClick={handleSave} className="ml-auto" size="sm">
+            <Button onClick={handleSave} className="shrink-0 ml-2" size="sm">
                 <Save className="mr-2 h-4 w-4" />
-                Salvar Alterações
+                <span className="hidden sm:inline">Salvar Alterações</span>
+                <span className="sm:hidden">Salvar</span>
             </Button>
         )}
       </header>
 
-      <main className="p-4 md:p-6 space-y-6 max-w-2xl mx-auto w-full flex-grow animate-in fade-in-0 duration-500">
-        <Card className="animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-100 transition-all hover:shadow-md">
-            <CardHeader>
-                <CardTitle className="flex items-center gap-3">
-                    <Briefcase className="text-primary" />
+      <main className="p-4 space-y-4 max-w-2xl mx-auto w-full flex-grow animate-in fade-in-0 duration-500">
+        <Card className="animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-100 transition-all hover:shadow-md active:scale-[0.98]">
+            <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                    <Briefcase className="text-primary h-5 w-5" />
                     Jornada de Trabalho
                 </CardTitle>
-                 <CardDescription>
+                 <CardDescription className="text-sm">
                     Defina sua carga horária e dias de trabalho para calcular sua meta diária.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                     <div>
-                        <Label htmlFor="weekly-hours">Carga horária semanal</Label>
+                        <Label htmlFor="weekly-hours" className="text-sm font-medium">Carga horária semanal</Label>
                         <div className="flex items-center gap-2 mt-2">
                             <Input
                                 id="weekly-hours"
                                 type="number"
                                 value={weeklyHours}
                                 onChange={(e) => setWeeklyHours(e.target.value)}
-                                className="w-24 bg-input border-border" />
-                            <span>horas</span>
+                                className="w-20 sm:w-24 h-10 text-sm bg-input border-border" />
+                            <span className="text-sm">horas</span>
                         </div>
                     </div>
                      <div>
-                        <Label htmlFor="work-start-time">Horário de início</Label>
-                        <div className="relative mt-2 flex w-32 items-center">
+                        <Label htmlFor="work-start-time" className="text-sm font-medium">Horário de início</Label>
+                        <div className="relative mt-2 flex w-28 sm:w-32 items-center">
                            <Input
                                 id="work-start-time"
                                 type="time"
                                 value={workStartTime}
                                 onChange={(e) => setWorkStartTime(e.target.value)}
-                                className="w-full bg-input border-border pr-8"
+                                className="w-full h-10 text-sm bg-input border-border pr-8"
                             />
                             <Clock className="pointer-events-none absolute right-2 h-4 w-4 text-primary" />
                         </div>
                     </div>
                 </div>
-                 <div className="flex justify-between items-center">
-                    <div>
-                        <Label htmlFor="break-duration">Duração do intervalo (padrão)</Label>
-                         <p className="text-sm text-muted-foreground">Define a duração padrão do seu intervalo em minutos.</p>
+                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                    <div className="flex-1">
+                        <Label htmlFor="break-duration" className="text-sm font-medium">Duração do intervalo (padrão)</Label>
+                         <p className="text-xs sm:text-sm text-muted-foreground">Define a duração padrão do seu intervalo em minutos.</p>
                     </div>
                     <div className="flex items-center gap-2">
                         <Input
@@ -282,15 +285,15 @@ export default function SettingsPage() {
                             type="number"
                             value={breakDuration}
                             onChange={(e) => setBreakDuration(e.target.value)}
-                            className="w-24 bg-input border-border"
+                            className="w-20 sm:w-24 h-10 text-sm bg-input border-border"
                         />
-                        <span>minutos</span>
+                        <span className="text-sm">minutos</span>
                     </div>
                 </div>
 
-                <div className="space-y-2">
-                <Label>Dias da semana</Label>
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="space-y-3">
+                <Label className="text-sm font-medium">Dias da semana</Label>
+                <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-start">
                     {(Object.keys(dayLabels) as Array<keyof typeof dayLabels>).map((day) => (
                     <TooltipProvider key={day} delayDuration={100}>
                         <Tooltip>
@@ -299,7 +302,7 @@ export default function SettingsPage() {
                             variant={workdays[day] ? "default" : "outline"}
                             size="icon"
                             onClick={() => handleToggleDay(day)}
-                            className="rounded-full w-9 h-9"
+                            className="rounded-full w-10 h-10 sm:w-9 sm:h-9 text-sm font-medium"
                             >
                             {dayLabels[day].toUpperCase()}
                             </Button>
@@ -327,30 +330,30 @@ export default function SettingsPage() {
             </CardContent>
         </Card>
 
-        <Card className="animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-200 transition-all hover:shadow-md">
-             <CardHeader>
-                <CardTitle className="flex items-center gap-3">
-                    <Bell className="text-primary"/>
+        <Card className="animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-200 transition-all hover:shadow-md active:scale-[0.98]">
+             <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                    <Bell className="text-primary h-5 w-5"/>
                     Notificações e Exibição
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="text-sm">
                     Personalize os lembretes e o formato de exibição das horas.
                 </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6 pt-6">
-                <div className="flex justify-between items-center">
-                    <div>
-                        <Label htmlFor="reminders" className="font-semibold">Lembretes de ponto</Label>
-                        <p className="text-sm text-muted-foreground">Receba notificações para registrar os pontos.</p>
+            <CardContent className="space-y-6">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                    <div className="flex-1">
+                        <Label htmlFor="reminders" className="text-sm font-semibold">Lembretes de ponto</Label>
+                        <p className="text-xs sm:text-sm text-muted-foreground">Receba notificações para registrar os pontos.</p>
                     </div>
-                    <Switch id="reminders" checked={enableReminders} onCheckedChange={handleEnableRemindersChange} />
+                    <Switch id="reminders" checked={enableReminders} onCheckedChange={handleEnableRemindersChange} className="shrink-0" />
                 </div>
-                 <div className="flex justify-between items-center">
-                    <div>
-                        <Label htmlFor="time-format">Formato de hora (12h/24h)</Label>
-                         <p className="text-sm text-muted-foreground">Escolha como as horas são exibidas.</p>
+                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                    <div className="flex-1">
+                        <Label htmlFor="time-format" className="text-sm font-medium">Formato de hora (12h/24h)</Label>
+                         <p className="text-xs sm:text-sm text-muted-foreground">Escolha como as horas são exibidas.</p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                         <span className={`text-sm transition-colors ${!is24hFormat ? 'text-foreground' : 'text-muted-foreground'}`}>12h</span>
                         <Switch id="time-format" checked={is24hFormat} onCheckedChange={setIs24hFormat} />
                         <span className={`text-sm transition-colors ${is24hFormat ? 'text-foreground' : 'text-muted-foreground'}`}>24h</span>
