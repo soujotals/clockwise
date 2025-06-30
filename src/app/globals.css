@@ -24,6 +24,13 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 24.6 95% 53.1%;
     --radius: 0.5rem;
+    
+    /* Mobile-first status colors */
+    --status-working: 34 197 94;      /* Verde - trabalhando */
+    --status-break: 249 115 22;       /* Laranja - intervalo */
+    --status-finished: 99 102 241;    /* Azul - concluído */
+    --status-overtime: 239 68 68;     /* Vermelho - hora extra */
+    --status-waiting: 156 163 175;    /* Cinza - aguardando */
   }
 
   .dark {
@@ -67,4 +74,148 @@
 input[type="time"]::-webkit-calendar-picker-indicator {
   display: none;
   -webkit-appearance: none;
+}
+
+/* Mobile-first animations */
+@keyframes work-pulse {
+  0%, 100% { 
+    transform: scale(1); 
+    opacity: 0.8; 
+  }
+  50% { 
+    transform: scale(1.05); 
+    opacity: 1; 
+  }
+}
+
+@keyframes break-wave {
+  0% { 
+    transform: scale(1) rotate(0deg); 
+  }
+  25% { 
+    transform: scale(1.02) rotate(1deg); 
+  }
+  75% { 
+    transform: scale(0.98) rotate(-1deg); 
+  }
+  100% { 
+    transform: scale(1) rotate(0deg); 
+  }
+}
+
+@keyframes shimmer {
+  0% { 
+    background-position: -200px 0; 
+  }
+  100% { 
+    background-position: calc(200px + 100%) 0; 
+  }
+}
+
+@keyframes status-glow {
+  0%, 100% {
+    box-shadow: 0 0 5px currentColor;
+  }
+  50% {
+    box-shadow: 0 0 20px currentColor, 0 0 30px currentColor;
+  }
+}
+
+/* Utility classes for mobile interactions */
+@layer utilities {
+  .work-pulse {
+    animation: work-pulse 2s ease-in-out infinite;
+  }
+  
+  .break-wave {
+    animation: break-wave 3s ease-in-out infinite;
+  }
+  
+  .shimmer {
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    animation: shimmer 1.5s infinite;
+  }
+  
+  .status-glow {
+    animation: status-glow 2s ease-in-out infinite;
+  }
+  
+  /* Mobile touch improvements */
+  .touch-action-none {
+    touch-action: none;
+  }
+  
+  .touch-action-pan-y {
+    touch-action: pan-y;
+  }
+  
+  /* Safe area support for mobile devices */
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .safe-left {
+    padding-left: env(safe-area-inset-left);
+  }
+  
+  .safe-right {
+    padding-right: env(safe-area-inset-right);
+  }
+  
+  /* Mobile-optimized card styles */
+  .mobile-card {
+    @apply bg-card border border-border rounded-lg shadow-sm;
+    @apply transition-all duration-200 ease-out;
+    @apply active:scale-[0.98] hover:shadow-md;
+  }
+  
+  /* Large touch targets for mobile */
+  .touch-target {
+    @apply min-h-[44px] min-w-[44px];
+  }
+  
+  /* Glass morphism effect */
+  .glass {
+    @apply bg-background/80 backdrop-blur-md border border-border/50;
+  }
+}
+
+/* Mobile-specific breakpoints */
+@media (max-width: 320px) {
+  .main-button-xs {
+    width: 140px;
+    height: 140px;
+  }
+  
+  .card-grid-xs {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 375px) {
+  .main-button-sm {
+    width: 160px;
+    height: 160px;
+  }
+}
+
+@media (min-width: 414px) {
+  .card-grid-md {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Enhanced focus states for accessibility */
+@layer base {
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+  
+  button:focus-visible {
+    @apply ring-2 ring-primary ring-offset-2;
+  }
 }
