@@ -30,6 +30,7 @@ import {
   Coffee,
   CheckCircle,
   Timer,
+  FileText,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -734,13 +735,14 @@ export default function Dashboard({ user }: DashboardProps) {
           </Card>
         </section>
 
-        <nav className="w-full flex flex-row gap-2 pt-4 animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-500">
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="outline" className="flex-1 border-primary/40 hover:bg-primary/10 hover:border-primary transition-all">
-                <BarChart className="mr-2 h-4 w-4" /> Histórico
-              </Button>
-            </AlertDialogTrigger>
+        <nav className="w-full space-y-3 pt-4 animate-in fade-in-0 slide-in-from-bottom-4 duration-500 delay-500">
+          <div className="flex flex-row gap-2">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" className="flex-1 border-primary/40 hover:bg-primary/10 hover:border-primary transition-all">
+                  <BarChart className="mr-2 h-4 w-4" /> Histórico
+                </Button>
+              </AlertDialogTrigger>
             <AlertDialogContent className="max-w-2xl">
               <AlertDialogHeader>
                 <AlertDialogTitle>Histórico de Pontos</AlertDialogTitle>
@@ -846,19 +848,28 @@ export default function Dashboard({ user }: DashboardProps) {
                 <AlertDialogCancel onClick={() => setEditingEvent(null)}>Fechar</AlertDialogCancel>
               </AlertDialogFooter>
             </AlertDialogContent>
-          </AlertDialog>
-          
-          <Button variant="outline" className="flex-1 border-primary/40 hover:bg-primary/10 hover:border-primary transition-all" asChild>
-            <Link href="/reports">
-              <TrendingUp className="mr-2 h-4 w-4" /> Relatórios
-            </Link>
-          </Button>
+            </AlertDialog>
+            
+            <Button variant="outline" className="flex-1 border-primary/40 hover:bg-primary/10 hover:border-primary transition-all" asChild>
+              <Link href="/reports">
+                <TrendingUp className="mr-2 h-4 w-4" /> Relatórios
+              </Link>
+            </Button>
 
-          <Button variant="outline" className="flex-1 border-primary/40 hover:bg-primary/10 hover:border-primary transition-all" asChild>
-            <Link href="/settings">
-              <Settings className="mr-2 h-4 w-4" /> Configurações
-            </Link>
-          </Button>
+            <Button variant="outline" className="flex-1 border-primary/40 hover:bg-primary/10 hover:border-primary transition-all" asChild>
+              <Link href="/settings">
+                <Settings className="mr-2 h-4 w-4" /> Configurações
+              </Link>
+            </Button>
+          </div>
+          
+          <div className="flex justify-center">
+            <Button variant="outline" className="flex-1 border-primary/40 hover:bg-primary/10 hover:border-primary transition-all" asChild>
+              <Link href="/absences">
+                <FileText className="mr-2 h-4 w-4" /> Ausências
+              </Link>
+            </Button>
+          </div>
         </nav>
       </div>
 
