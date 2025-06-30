@@ -56,9 +56,31 @@ export function StatusDisplay({
     }
   })();
 
+  const statusColors = {
+    'NOT_STARTED': 'bg-gray-400',
+    'WORKING_BEFORE_BREAK': 'bg-green-500',
+    'ON_BREAK': 'bg-orange-500',
+    'WORKING_AFTER_BREAK': 'bg-green-500',
+    'FINISHED': 'bg-blue-500',
+  };
+
+  const isActive = workdayStatus === 'WORKING_BEFORE_BREAK' || workdayStatus === 'WORKING_AFTER_BREAK';
+
   return (
-    <p className="text-lg text-center text-muted-foreground animate-in fade-in-0 duration-500 delay-100">
-      {statusLabel}
-    </p>
+    <div className="flex items-center justify-center gap-3 animate-in fade-in-0 duration-500 delay-100">
+      {/* Status dot with pulse animation */}
+      <div className="relative">
+        <div className={`w-3 h-3 rounded-full ${statusColors[workdayStatus]}`} />
+        
+        {/* Pulse effect for active states */}
+        {isActive && (
+          <div className={`absolute inset-0 w-3 h-3 rounded-full animate-ping ${statusColors[workdayStatus]} opacity-75`} />
+        )}
+      </div>
+
+      <p className="text-lg text-center text-muted-foreground">
+        {statusLabel}
+      </p>
+    </div>
   );
 }

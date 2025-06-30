@@ -636,7 +636,7 @@ export default function Dashboard({ user }: DashboardProps) {
   }
 
   return (
-    <main className="bg-background text-foreground flex flex-col min-h-screen p-4 md:p-6 font-sans">
+    <main className="bg-background text-foreground flex flex-col min-h-screen p-4 md:p-6 font-sans safe-top safe-bottom">
       <div className="w-full max-w-lg mx-auto flex flex-col items-center justify-center flex-grow space-y-6">
         
         <header className="w-full flex justify-between items-center animate-in fade-in-0 duration-500">
